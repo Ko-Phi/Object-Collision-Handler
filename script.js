@@ -8,7 +8,7 @@ function program() {
   const FPS = 60;
   const moreBoxes = true; // replaces the usual two boxes with 5
   const veryMoreBoxes = true; // a lot of boxes
-  const ABSURDITY = false; // way too many boxes
+  const considerablyLargeAmountOfBoxesToInsert = true; // way too many boxes
 
   const visualize = false; // recommended to swap off when boxes are densely packed
   const randomMovement = true; // they're alive! (and ruining your performance
@@ -121,13 +121,13 @@ function program() {
     return idCount++;
   }
 
-  let keys = Array(100).fill(false);
-  function keyPressed() {
+  var keys = Array(100).fill(false);
+  keyPressed = function () {
     keys[keyCode] = true;
-  }
-  function keyReleased() {
+  };
+  keyReleased = function () {
     keys[keyCode] = false;
-  }
+  };
 
   // componentInit: x, y
   // dirMagInit: dir, mag
@@ -139,15 +139,15 @@ function program() {
         x = input1;
         y = input2;
       } else if (init === "dirMag") {
-        x = input2 * cos(input1);
-        y = input2 * sin(input1);
+        x = input2 * Math.cos(input1);
+        y = input2 * Math.sin(input1);
       }
       this.x = x;
       this.y = y;
     }
     sqMag = () => sq(this.x) + sq(this.y);
     mag = () => sqrt(this.sqMag());
-    theta = () => atan2(this.y, this.x);
+    theta = () => Math.atan2(this.y, this.x);
     add(vector) {
       if (!(vector instanceof Vector)) {
         vector = new Vector(vector, vector);
@@ -422,12 +422,7 @@ function program() {
   }
 
   let gridSize = 50;
-  if (veryMoreBoxes) {
-    gridSize = 40;
-  }
-  if (ABSURDITY) {
-    gridSize = 25;
-  }
+
   const world = new SpatialHashGrid(gridSize);
 
   class Shape {
@@ -465,7 +460,7 @@ function program() {
   function regularPolyVerts(x, y, r, n) {
     const vertices = [];
     for (let i = 0; i < n; i++) {
-      vertices.push(new Vector(x + r * cos((2 * PI * i) / n), y + r * sin((2 * PI * i) / n)));
+      vertices.push(new Vector(x + r * Math.cos((2 * PI * i) / n), y + r * Math.sin((2 * PI * i) / n)));
     }
     return vertices;
   }
@@ -514,8 +509,8 @@ function program() {
         this.cachedCenter = this.center.multiply(1);
       }
       if (this.type === "Polygon") {
-        const cosT = cos(base.dir);
-        const sinT = sin(base.dir);
+        const cosT = Math.cos(base.dir);
+        const sinT = Math.sin(base.dir);
         let sum = new Vector(0, 0);
         for (let i = 0; i < this.vertices.length; i++) {
           const vertex = this.vertices[i];
@@ -562,8 +557,8 @@ function program() {
       if (base.dir !== this.cachedDir && this.cachedCenter.x + this.cachedCenter.y !== 0) {
         const dir = base.dir;
         this.cachedDir = dir;
-        const cosT = cos(dir);
-        const sinT = sin(dir);
+        const cosT = Math.cos(dir);
+        const sinT = Math.sin(dir);
 
         let center = this.center;
         let cachedCenter = this.cachedCenter;
@@ -571,7 +566,6 @@ function program() {
         center.x = cachedCenter.x * cosT - cachedCenter.y * sinT;
         center.y = cachedCenter.x * sinT + cachedCenter.y * cosT;
       }
-      if (ABSURDITY) return;
 
       // display AABB (note aabb center points to base center)
       const center = this.center;
@@ -604,8 +598,8 @@ function program() {
 
       const position = base.position;
       const dir = base.dir;
-      const cosT = cos(dir);
-      const sinT = sin(dir);
+      const cosT = Math.cos(dir);
+      const sinT = Math.sin(dir);
       // recalc transformed vertices and normals
       for (let i = 0; i < this.vertices.length; i++) {
         const vertex = this.vertices[i];
@@ -713,7 +707,7 @@ function program() {
         this.position.y = (this.position.y / abs(this.position.y)) * -1 * canvasHalfHeight;
       }
       if (this.ticks % (60 * dt) === 0 && randomMovement) {
-        const scale = ABSURDITY ? 0.5 : 1;
+        const scale = considerablyLargeAmountOfBoxesToInsert ? 0.5 : 1;
         this.velocity = new Vector(random(0, 2 * PI), random(2, 5) * scale, "dirMag");
         this.omega = random(-0.1, 0.1) * scale;
       }
@@ -815,11 +809,12 @@ function program() {
           if (visualize) {
             const bases = [baseA, baseB];
             const seperator = axis.normalize();
-            const shadow = seperator.perpendicular().multiply(new Vector(400, 400));
+            const scalar = max(canvasHalfWidth, canvasHalfHeight) * 3;
+            const shadow = seperator.perpendicular().multiply(scalar);
             pushMatrix();
             translate(canvasHalfWidth, canvasHalfHeight);
-            stroke(150, 150, 150);
-            line(-seperator.x * 400, -seperator.y * 400, seperator.x * 400, seperator.y * 400);
+            stroke(150);
+            line(-seperator.x * scalar, -seperator.y * scalar, seperator.x * scalar, seperator.y * scalar);
             let mid;
             if (projA.max < projB.min) {
               mid = (projA.max + projB.min) / 2;
@@ -899,9 +894,9 @@ function program() {
   }
 
   let boxes = [];
-  const boxCount = ABSURDITY ? 150 : veryMoreBoxes ? 50 : 0;
-  const s = ABSURDITY ? 10 : 20;
-  for (let i = 0; i < boxCount; i++) {
+  const insertCount = considerablyLargeAmountOfBoxesToInsert ? 200 : veryMoreBoxes ? 50 : 0;
+  const s = considerablyLargeAmountOfBoxesToInsert ? 20 : 20;
+  for (let i = 0; i < insertCount; i++) {
     const shap =
       ceil(random(0, 5)) > 2
         ? newPolygon(regularPolyVerts(0, 0, ceil(random(s, s + 5)), ceil(random(2, 5))), new Color(255, 0, 0))
@@ -918,7 +913,7 @@ function program() {
     );
   }
 
-  if (!veryMoreBoxes && !ABSURDITY) {
+  if (!veryMoreBoxes && !considerablyLargeAmountOfBoxesToInsert) {
     boxes.push(
       new Base({
         position: new Vector(-100, 0),
@@ -958,8 +953,8 @@ function program() {
       this.metrics = {};
     }
     getTime() {
-      const result = millis() - this.ticks;
-      this.ticks = millis();
+      const result = performance.now() - this.ticks;
+      this.ticks = performance.now();
       return result;
     }
     updateMetric(key) {
@@ -972,20 +967,25 @@ function program() {
     }
     getMetricData(key, out) {
       let buffer = this.metrics[key].buffer;
-      const sorted = Array.from(buffer).sort();
 
-      out.min = sorted[0];
-      out.max = sorted[sorted.length - 1];
+      let mini = Infinity;
+      let maxi = -Infinity;
+      let sum = 0;
 
-      const sum = sorted.reduce(function (accumulator, currentValue) {
-        return accumulator + currentValue;
-      }, 0);
-      out.average = sum / sorted.length;
+      for (let i = 0; i < buffer.length; i++) {
+        const data = buffer[i];
+        mini = min(data, buffer);
+        maxi = max(data, buffer);
+        sum += data;
+      }
 
-      if (sorted.length % 2) {
-        out.median = sorted[sorted.length / 2 + -0.5];
+      out.min = mini;
+      out.max = maxi;
+      out.average = sum / buffer.length;
+      if (key !== "total") {
+        out.percentage = (out.average / this.metrics.total.savedData.average) * 100;
       } else {
-        out.median = sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2 + 1] / 2;
+        out.percentage = 100;
       }
     }
     // for next frame
@@ -1011,9 +1011,6 @@ function program() {
       }
       const total = this.metrics.total;
       total.buffer[0] = sum;
-      if (total.buffer.unshift(0) > displayPeriod) {
-        total.buffer.pop();
-      }
     }
   }
 
@@ -1023,6 +1020,7 @@ function program() {
   let ticksSinceInput = 0;
 
   let ticks = 0;
+  let lastFrame = millis();
   let collisions = [];
 
   const font = createFont("sans-serif");
@@ -1036,6 +1034,7 @@ function program() {
   }
   const collisionSet = new Set();
   function draw() {
+    lastFrame = millis();
     Perf.resetMetrics();
     collisionSet.clear();
     collisions = [];
@@ -1111,6 +1110,7 @@ function program() {
         }
       }
     }
+
     if (ticks === 0) {
       Perf.getTime();
       Perf.updateMetric("priorCheck");
@@ -1139,6 +1139,7 @@ function program() {
         5
       );
     }
+    Perf.updateMetric("drawBoxes");
 
     Perf.getTotal();
 
@@ -1155,16 +1156,18 @@ function program() {
       collisions.length
     ];
 
-    const dataToDisplay = ["average", "max", "median"];
+    const dataToDisplay = ["average", "max", "percentage"];
     textSize(12);
     fill(0, 0, 0, 120);
     pushMatrix();
-    rect(4, 4, dataToDisplay.length * 210 + 16, 4 + Object.keys(Perf.metrics).length * 40 + 32);
+    rect(4, 4, dataToDisplay.length * 256, 4 + Object.keys(Perf.metrics).length * 40 + 32);
     fill(255, 255, 255);
     textAlign(LEFT, TOP);
 
     if (ticks % displayPeriod === 0) {
       let out = {};
+      Perf.getMetricData("total", out);
+      Perf.metrics.total.savedData = Object.assign({}, out);
       for (const key in Perf.metrics) {
         Perf.getMetricData(key, out);
         Perf.metrics[key].savedData = Object.assign({}, out);
@@ -1182,7 +1185,7 @@ function program() {
 
     fill(255, 255, 255);
     noStroke();
-    rect(8, 42, dataToDisplay.length * 210, 2);
+    rect(8, 42, dataToDisplay.length * 210 + 60, 2);
 
     textFont(font, 24);
     let dy = 48;
@@ -1209,7 +1212,8 @@ function program() {
       let dx = 256;
       for (const dataKey of dataToDisplay) {
         let data = metric[dataKey];
-        data = isNaN(data) ? displayPeriod - ticks : `${data.toFixed(3)} ms`;
+        const unit = dataKey === "percentage" ? "%" : "ms";
+        data = isNaN(data) ? displayPeriod - ticks : `${data.toFixed(3)} ${unit}`;
 
         text(data, dx, dy);
         dx += 140;
@@ -1220,11 +1224,11 @@ function program() {
 
     fill(0, 0, 0, 120);
     stroke(0);
-    rect(4, height - 4, 110, -4 - countMetrics.length * 10);
+    rect(4, height - 4, 230, -4 - countMetrics.length * 20);
     fill(255);
     textAlign(LEFT, TOP);
     for (let i = 0; i < countMetrics.length; i += 2) {
-      text(countMetrics[i] + ": " + countMetrics[i + 1], 8, height - 4 - countMetrics.length * 10 + i * 10);
+      text(`${countMetrics[i]}: ${countMetrics[i + 1]}`, 8, height - 4 - countMetrics.length * 20 + i * 20);
     }
     popMatrix();
 
