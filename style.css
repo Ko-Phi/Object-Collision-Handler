@@ -10,7 +10,6 @@ body,
   height: 100%;
   margin: 0px;
   padding: 0px;
-  width: calc(100% + 1px);
 }
 
 body {
