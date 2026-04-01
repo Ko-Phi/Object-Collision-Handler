@@ -714,11 +714,11 @@ function program() {
 
   let boxes = [];
   const insertCount = considerablyLargeAmountOfBoxesToInsert ? 1000 : veryMoreBoxes ? 200 : 0;
-  const s = considerablyLargeAmountOfBoxesToInsert ? 10 : 20;
+  const s = considerablyLargeAmountOfBoxesToInsert ? 8 : 20;
   for (let i = 0; i < insertCount; i++) {
     const shape =
       (ceil(random(0, 5)) > 2 && !allCircles) || allPolys
-        ? newPolygon(regularPolyVerts(0, 0, ceil(random(s, s + 5)), ceil(random(2, 5))), new Color(255, 0, 0))
+        ? newPolygon(regularPolyVerts(0, 0, ceil(random(s, s + 3)), ceil(random(2, 5))), new Color(255, 0, 0))
         : newCircle(new Vector(0, 0), ceil(random(s, s + 5)), new Color(255, 0, 0));
     boxes.push(
       new Base({

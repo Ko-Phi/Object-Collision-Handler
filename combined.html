@@ -1,13 +1,16 @@
 <!doctype html>
-<html>
-  <!-- Uses @MushyAvocado's project exported (https://www.khanacademy.org/computer-programming/ka-project-exporter/5195486791385088)-->
+<html lang="en">
+  <!-- Program exported to HTML using the KA Project Exporter by @MushyAvocado 
+https://www.khanacademy.org/computer-programming/ka-project-exporter/5195486791385088
+-->
+
   <head>
     <meta charset="utf-8" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>a</title>
+    <title></title>
     <style>
       /* Change the color as you want */
       :root {
@@ -65,18 +68,29 @@
     <!-- Run Khan Academy program and import PJS -->
     <script type="application/javascript">
       function program() {
-        title("Mass Object Collision Profiler");
+        title("");
+        size(400, 400);
+
+        // All code goes here
+        title("Mass Object Collision Handler");
         size(1800, 1200);
         const canvasHalfWidth = width / 2;
         const canvasHalfHeight = height / 2;
         // no more radian jumpscare
 
-        const FPS = 60;
         const moreBoxes = true; // replaces the usual two boxes with 5
         const veryMoreBoxes = true; // a lot of boxes
         const considerablyLargeAmountOfBoxesToInsert = true; // way too many boxes
 
+        const gridSize = considerablyLargeAmountOfBoxesToInsert ? 30 : 50;
+        const FPS = considerablyLargeAmountOfBoxesToInsert ? 30 : 60;
         const visualize = false; // recommended to swap off when boxes are densely packed
+        const displayAABB = false;
+        const displayGridCheck = false;
+        const allCircles = false;
+        const allPolys = false;
+        const drawAsCircles = false;
+        const sameColor = false;
         const randomMovement = true; // they're alive! (and ruining your performance
 
         /**
@@ -271,9 +285,7 @@
             this.model = "HSV";
           }
           value() {
-            if (this.model === "HSV") {
-              this.toRGB();
-            }
+            if (this.model === "HSV") this.toRGB();
             return color(this.channels[0], this.channels[1], this.channels[2], this.channels[3]);
           }
         }
@@ -311,9 +323,7 @@
             for (let x = index1.x; x <= index2.x; ++x) {
               for (let y = index1.y; y <= index2.y; ++y) {
                 const key = this.key(x, y);
-                if (!this.grid[key]) {
-                  this.grid[key] = [];
-                }
+                if (!this.grid[key]) this.grid[key] = [];
                 this.grid[key].push(client);
               }
             }
@@ -327,16 +337,19 @@
             const index2 = this.getCellIndex(x + width / 2, y + height / 2);
 
             // iterate over spanned area for clients
-            pushMatrix();
-            translate(canvasHalfWidth, canvasHalfHeight);
-            fill(180, 30);
-            stroke(180, 90);
-            let clients = [];
+            if (displayGridCheck) {
+              pushMatrix();
+              translate(canvasHalfWidth, canvasHalfHeight);
+              fill(180, 30);
+              stroke(180, 90);
+            }
+            let clients = new Set();
             for (let x = index1.x; x <= index2.x; ++x) {
               for (let y = index1.y; y <= index2.y; ++y) {
                 let key = this.key(x, y);
-                if (this.grid[key]) for (const client of this.grid[key]) clients.push(client);
-                rect(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize);
+                if (this.grid[key]) for (const client of this.grid[key]) clients.add(client);
+                if (displayGridCheck)
+                  rect(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize);
                 cellsChecked++;
               }
             }
@@ -387,21 +400,17 @@
               let x = ceil(-width / this.cellSize) * this.cellSize;
               x <= canvasHalfWidth;
               x += this.cellSize
-            ) {
+            )
               line(x, height, x, -height);
-            }
             for (
               let y = ceil(-height / this.cellSize) * this.cellSize;
               y <= canvasHalfHeight;
               y += this.cellSize
-            ) {
+            )
               line(width, y, -width, y);
-            }
             popMatrix();
           }
         }
-
-        let gridSize = 50;
 
         const world = new SpatialHashGrid(gridSize);
 
@@ -409,43 +418,32 @@
           constructor(params) {
             this.color = params.color;
             this.type = params.type || "Polygon";
-            if (this.type === "Polygon") {
-              this.vertices = params.vertices;
-            } else if (this.type === "Circle") {
+            if (this.type === "Polygon") this.vertices = params.vertices;
+            else if (this.type === "Circle") {
               this.center = retDef(params.center, new Vector(0, 0));
               this.radius = params.radius;
             }
           }
-          draw(dx, dy) {
-            fill(this.color.cachedValue);
+          draw(dx = 0, dy = 0) {
+            if (!sameColor) fill(this.color.cachedValue);
             if (this.type === "Polygon") {
               beginShape();
-              for (const vert of this.vertices) {
-                // Vector check stuff
-                if (!(vert instanceof Vector)) vert = new Vector(vert[0], vert[1]);
-                vertex(vert.x + dx, vert.y + dy);
-              }
+              for (const vert of this.vertices) vertex(vert.x + dx, vert.y + dy);
               endShape(CLOSE);
             } else if (this.type === "Circle")
               ellipse(this.center.x, this.center.y, this.radius * 2, this.radius * 2);
-
-            fill(125);
-            ellipse(0, 0, 5, 5);
           }
         }
 
         function regularPolyVerts(x, y, r, n) {
           const vertices = [];
-          for (let i = 0; i < n; i++) {
+          for (let i = 0; i < n; i++)
             vertices.push(new Vector(x + r * Math.cos((2 * PI * i) / n), y + r * Math.sin((2 * PI * i) / n)));
-          }
           return vertices;
         }
         function polyVerts(inputs) {
           let vertices = [];
-          for (let i = 0; i < inputs.length; i += 2) {
-            vertices.push(new Vector(inputs[i], inputs[i + 1]));
-          }
+          for (let i = 0; i < inputs.length; i += 2) vertices.push(new Vector(inputs[i], inputs[i + 1]));
           return vertices;
         }
 
@@ -539,7 +537,7 @@
               center.x = cachedCenter.x * cosT - cachedCenter.y * sinT;
               center.y = cachedCenter.x * sinT + cachedCenter.y * cosT;
             }
-
+            if (!displayAABB) return;
             // display AABB (note aabb center points to base center)
             const center = this.center;
             const aabbWidth = this.aabb.width;
@@ -679,9 +677,7 @@
           draw() {
             pushMatrix();
             translate(this.position.x + canvasHalfWidth, this.position.y + height / 2);
-            if (this.shape.type !== "Circle") {
-              rotate(this.dir);
-            }
+            if (this.shape.type !== "Circle") rotate(this.dir);
             this.shape.draw(0, 0);
             popMatrix();
           }
@@ -721,24 +717,6 @@
               }
             }
 
-            // Circle-Polygon
-            // get closest point on edge and add to normals
-            if (baseA.hitbox.type !== baseB.hitbox.type) {
-              let circleBase, otherHitbox;
-              if (baseA.hitbox.type === "Circle") {
-                circleBase = baseA;
-                otherHitbox = baseB.hitbox;
-              } else {
-                circleBase = baseB;
-                otherHitbox = baseA.hitbox;
-              }
-              const center = circleBase.position.add(circleBase.hitbox.center);
-
-              const closestPoint = otherHitbox.closestPointToCenterOf(circleBase);
-              const axis = closestPoint.subtract(center);
-              axes.unshift(axis.normalize());
-            }
-
             // Polygon-Polygon / Circle-Polygon Test
             // project each hitbox on each axis, checking for seperation
             let minOverlap = Infinity;
@@ -751,64 +729,7 @@
               baseB.hitbox.project(axis, baseB, projB);
 
               // check if seperate
-              if (projA.max < projB.min || projB.max < projA.min) {
-                if (visualize) {
-                  const bases = [baseA, baseB];
-                  const seperator = axis.normalize();
-                  const scalar = max(canvasHalfWidth, canvasHalfHeight) * 3;
-                  const shadow = seperator.perpendicular().multiply(scalar);
-                  pushMatrix();
-                  translate(canvasHalfWidth, canvasHalfHeight);
-                  stroke(150);
-                  line(
-                    -seperator.x * scalar,
-                    -seperator.y * scalar,
-                    seperator.x * scalar,
-                    seperator.y * scalar
-                  );
-                  let mid;
-                  if (projA.max < projB.min) mid = (projA.max + projB.min) / 2;
-                  else mid = (projA.min + projB.max) / 2;
-
-                  // draw seperating line
-                  stroke(0);
-                  line(
-                    seperator.x * mid - shadow.x,
-                    seperator.y * mid - shadow.y,
-                    seperator.x * mid + shadow.x,
-                    seperator.y * mid + shadow.y
-                  );
-                  const mins = [projA.min, projB.min];
-                  const maxes = [projA.max, projB.max];
-                  for (let j = 0; j < bases.length; j++) {
-                    if (focus === bases[j].id) {
-                      stroke(170, 255, 153);
-                      fill(170, 255, 153, 25);
-                    } else {
-                      stroke(255, 104, 104);
-                      fill(255, 104, 104, 25);
-                    }
-                    strokeWeight(2);
-                    line(
-                      seperator.x * mins[j],
-                      seperator.y * mins[j],
-                      seperator.x * maxes[j],
-                      seperator.y * maxes[j]
-                    );
-                    // cast shadow
-                    beginShape();
-                    vertex(seperator.x * mins[j] - shadow.x, seperator.y * mins[j] - shadow.y);
-                    vertex(seperator.x * mins[j] + shadow.x, seperator.y * mins[j] + shadow.y);
-                    vertex(seperator.x * maxes[j] + shadow.x, seperator.y * maxes[j] + shadow.y);
-                    vertex(seperator.x * maxes[j] - shadow.x, seperator.y * maxes[j] - shadow.y);
-                    endShape();
-                  }
-                  fill(0);
-                  stroke(0);
-                  popMatrix();
-                }
-                return { colliding: false };
-              }
+              if (projA.max < projB.min || projB.max < projA.min) return { colliding: false };
 
               const overlap = min(projA.max, projB.max) - max(projA.min, projB.min);
               if (overlap < minOverlap) {
@@ -816,6 +737,39 @@
                 minNormal = axis;
               }
             }
+
+            // Circle-Polygon Edge Case
+            if (baseA.hitbox.type !== baseB.hitbox.type) {
+              // get closest point on edge and add to normals
+              let circleBase, otherBase;
+              if (baseA.hitbox.type === "Circle") {
+                circleBase = baseA;
+                otherBase = baseB;
+              } else {
+                circleBase = baseB;
+                otherBase = baseA;
+              }
+              const center = circleBase.position.add(circleBase.hitbox.center);
+
+              const closestPoint = otherBase.hitbox.closestPointToCenterOf(circleBase);
+              const axis = closestPoint.subtract(center);
+
+              // project each hitbox's vertices
+              const projA = { min: null, max: null };
+              const projB = { min: null, max: null };
+              baseA.hitbox.project(axis, baseA, projA);
+              baseB.hitbox.project(axis, baseB, projB);
+
+              // check if seperate
+              if (projA.max < projB.min || projB.max < projA.min) return { colliding: false };
+
+              const overlap = min(projA.max, projB.max) - max(projA.min, projB.min);
+              if (overlap < minOverlap) {
+                minOverlap = overlap;
+                minNormal = axis;
+              }
+            }
+
             // reorient axis when neccessary
             const direction = tCenterB.subtract(tCenterA);
             const dotProd = minNormal.x * direction.x + minNormal.y * direction.y;
@@ -841,13 +795,13 @@
         }
 
         let boxes = [];
-        const insertCount = considerablyLargeAmountOfBoxesToInsert ? 200 : veryMoreBoxes ? 50 : 0;
-        const s = considerablyLargeAmountOfBoxesToInsert ? 20 : 20;
+        const insertCount = considerablyLargeAmountOfBoxesToInsert ? 1000 : veryMoreBoxes ? 200 : 0;
+        const s = considerablyLargeAmountOfBoxesToInsert ? 8 : 20;
         for (let i = 0; i < insertCount; i++) {
           const shape =
-            ceil(random(0, 5)) > 2
+            (ceil(random(0, 5)) > 2 && !allCircles) || allPolys
               ? newPolygon(
-                  regularPolyVerts(0, 0, ceil(random(s, s + 5)), ceil(random(2, 5))),
+                  regularPolyVerts(0, 0, ceil(random(s, s + 3)), ceil(random(2, 5))),
                   new Color(255, 0, 0)
                 )
               : newCircle(new Vector(0, 0), ceil(random(s, s + 5)), new Color(255, 0, 0));
@@ -1020,14 +974,10 @@
             const clients = world.findNear(box.position.add(aabb.center), aabb.width, aabb.height);
             Perf.updateMetric("hashGridQuery");
 
-            let seenIDs = new Set();
-            seenIDs.add(box.id);
             for (const client of clients) {
-              // skip duplicate clients (from double overlaps)
-              if (seenIDs.has(client.id)) {
-                continue;
-              }
-              seenIDs.add(client.id);
+              // skip duplicate collision check with self
+              if (client.id === box.id) continue;
+
               // skip duplicate collision checks
               const formattedCollision =
                 box.id < client.id ? box.id + "," + client.id : client.id + "," + box.id;
@@ -1074,8 +1024,17 @@
           // draw them boxes
           for (const box of boxes) {
             stroke(46);
-            strokeWeight(1);
-            box.draw();
+            if (sameColor) fill(255, 120, 120);
+            if (drawAsCircles) {
+              if (!sameColor) fill(box.shape.color.cachedValue);
+              const diameter = box.hitbox.aabb.width;
+              ellipse(
+                box.position.x + box.hitbox.center.x + canvasHalfWidth,
+                box.position.y + box.hitbox.center.y + canvasHalfHeight,
+                diameter,
+                diameter
+              );
+            } else box.draw();
             fill(211, 175, 55);
             ellipse(
               box.position.x + box.hitbox.center.x + canvasHalfWidth,
@@ -1155,7 +1114,7 @@
             for (const dataKey of dataToDisplay) {
               let data = metric[dataKey];
               const unit = dataKey === "percentage" ? "%" : "ms";
-              data = isNaN(data) ? displayPeriod - ticks : `${data.toFixed(3)} ${unit}`;
+              data = isNaN(data) ? displayPeriod - ticks / dt : `${data.toFixed(3)} ${unit}`;
 
               text(data, dx, dy);
               dx += 140;
