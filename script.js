@@ -1,4 +1,5 @@
 function program() {
+  let ctx;
   title("Mass Object Collision Handler");
   size(1800, 1200);
   const canvasHalfWidth = width / 2;
@@ -7,7 +8,7 @@ function program() {
 
   const moreBoxes = true; // replaces the usual two boxes with 5
   const veryMoreBoxes = true; // a lot of boxes
-  const considerablyLargeAmountOfBoxesToInsert = true; // way too many boxes
+  const considerablyLargeAmountOfBoxesToInsert = false; // way too many boxes
 
   const gridSize = 50;
   const FPS = considerablyLargeAmountOfBoxesToInsert ? 30 : 60;
@@ -449,9 +450,10 @@ function program() {
           maxSqRadius = max(vertex.copy().subtract(this.center).sqMag(), maxSqRadius);
           const dotProd = normal.x * direction.x + normal.y * direction.y;
           if (dotProd < 0) normal.multiply(-1);
-          this.cachedNormals[i] = normal;
+          this.cachedNormals[i] = normal.normalize();
           this.normals[i] = this.cachedNormals[i].copy();
         }
+        for (const normal of this.cachedNormals) if (normal.mag() > 1) println("oh no");
         this.radius = sqrt(maxSqRadius);
         // Better for more uniform shapes (this scenario)
         this.aabb.width = 2 * this.radius;
@@ -580,7 +582,9 @@ function program() {
 
       this.hitbox = new Hitbox(params.shape, this);
       this.axesBuffer = [];
-      this.velocity = new Vector(0, 0);
+      const scale = considerablyLargeAmountOfBoxesToInsert ? 0.5 : 1;
+      if (randomMovement) this.velocity = new Vector(random(0, 2 * PI), random(2, 5) * scale, "dirMag");
+      else this.velocity = new Vector(0, 0);
       this.omega = 0;
       this.ticks = floor(random(0, 50));
     }
@@ -603,7 +607,6 @@ function program() {
       }
       if (this.ticks % (60 * dt) === 0 && randomMovement) {
         const scale = considerablyLargeAmountOfBoxesToInsert ? 0.5 : 1;
-        this.velocity = new Vector(random(0, 2 * PI), random(2, 5) * scale, "dirMag");
         this.omega = random(-0.1, 0.1) * scale;
       }
       if (focus === this.id) {
@@ -686,7 +689,7 @@ function program() {
         const center = circleBase.position.copy().add(circleBase.hitbox.center);
 
         const closestPoint = otherBase.hitbox.closestPointToCenterOf(circleBase);
-        const axis = closestPoint.copy().subtract(center);
+        const axis = closestPoint.copy().subtract(center).normalize();
 
         // project each hitbox's vertices
         const projA = { min: null, max: null };
@@ -713,18 +716,41 @@ function program() {
         colliding: true,
         axis: minNormal,
         overlap: minOverlap,
-        MTV: minNormal.copy().multiply(minOverlap),
         baseA: baseA,
         baseB: baseB
       };
     }
     handleCollision(data) {
       if (!data.colliding) return;
-      const baseA = this;
+      const axis = data.axis;
+      const MTV = data.axis.copy().multiply(data.overlap);
       const baseB = data.baseB;
-      const displacement = data.MTV.copy().multiply(0.5 + epsilon);
+      const baseA = data.baseA;
+      const displacement = MTV.copy().multiply(0.5 + epsilon);
+
       baseA.position = baseA.position.copy().subtract(displacement);
       baseB.position.add(displacement);
+
+      if (axis.mag() > 1.1) println("Non normalized axis");
+      const res = 0.75;
+      const tangent = axis.copy().perpendicular();
+      // get components of each object's velocity (scalar quantities)
+      // only velocity parallel to collision axis affected by collision
+      const pVelocityA = baseA.velocity.dotProduct(axis);
+      const tVelocityA = baseA.velocity.dotProduct(tangent);
+      const pVelocityB = baseB.velocity.dotProduct(axis);
+      const tVelocityB = baseB.velocity.dotProduct(tangent);
+
+      baseA.velocity = axis
+        .copy()
+        .multiply(pVelocityA + pVelocityB - res * (pVelocityA - pVelocityB))
+        .divide(2)
+        .add(tangent.copy().multiply(tVelocityA));
+      baseB.velocity = axis
+        .copy()
+        .multiply(pVelocityA + pVelocityB + res * (pVelocityA - pVelocityB))
+        .divide(2)
+        .add(tangent.copy().multiply(tVelocityB));
     }
   }
 
@@ -868,6 +894,9 @@ function program() {
 
   const collisionSet = new Set();
   function draw() {
+    const canvas = document.getElementById("__processing0");
+    ctx = canvas.getContext("2d");
+
     lastFrame = millis();
     Perf.resetMetrics();
     collisionSet.clear();
