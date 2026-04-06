@@ -8,7 +8,8 @@ function program() {
   const initialVelocity = true; // objects begin with an intial velocity
   const periodicVelocityShifts = false; // velocity randomized periodically
   const collisionImpulse = true; // objects bounce off each other on collision
-  const restitution = 1; // collision bounciness (0 - 1)
+  const restitution = 0.9; // collision bounciness (0 - 1)
+  const mu = 0.01; // add friction (should be quite small)
   const allCircles = false; // all shapes are circles. Increases performance as well
   const allPolys = false; // all shapes are polygons. Slightly more performance intensive
   const gridSize = 50; // influences hashgrid check. Can queak for minor performance improvement
@@ -112,10 +113,13 @@ function program() {
   // quite small
   const epsilon = 1e-6;
   const rounD = (num, deciPlace) => round(num * pow(10, deciPlace)) / pow(10, deciPlace);
+
   // returns first defined value
   const retDef = (input1, input2) => (input1 !== undefined ? input1 : input2);
+
   let idCount = 0;
   const newid = () => idCount++;
+
   var keys = Array(100).fill(false);
   keyPressed = () => (keys[keyCode] = true);
   keyReleased = () => (keys[keyCode] = false);
@@ -130,8 +134,8 @@ function program() {
       [this.x, this.y] = [x, y];
     }
     copy = () => new Vector(this.x, this.y);
-    sqMag = () => sq(this.x) + sq(this.y);
-    mag = () => sqrt(this.sqMag());
+    getSqMag = () => sq(this.x) + sq(this.y);
+    getMag = () => sqrt(this.getSqMag());
     theta = () => Math.atan2(this.y, this.x);
     add(vector) {
       let vectorX, vectorY;
@@ -166,12 +170,14 @@ function program() {
       return this;
     }
     normalize() {
-      const mag = this.mag();
+      const mag = this.getMag();
       if (mag === 0) return this;
       return this.divide(mag);
     }
     dotProduct(vector) {
-      if (!(vector instanceof Vector)) vector = new Vector(vector, vector);
+      let vectorX, vectorY;
+      if (typeof vector === "number") vectorX = vectorY = vector;
+      else [vectorX, vectorY] = [vector.x, vector.y];
       return this.x * vector.x + this.y * vector.y;
     }
     perpendicular() {
@@ -244,7 +250,6 @@ function program() {
   }
 
   let cellsChecked = 0;
-
   class SpatialHashGrid {
     constructor(cellSize) {
       this.grid = new Map();
@@ -283,7 +288,7 @@ function program() {
         }
       }
     }
-    findNear(position, width, height) {
+    queryGrid(position, width, height) {
       const x = position.x;
       const y = position.y;
 
@@ -303,19 +308,18 @@ function program() {
       for (let x = index1.x; x <= index2.x; ++x) {
         for (let y = index1.y; y <= index2.y; ++y) {
           let key = this.key(x, y);
-          if (this.grid.has(key)) {
-            for (const client of this.grid.get(key)) {
-              if (client.queryId !== queryId) {
-                client.queryId = queryId;
-                clients.push(client);
-              }
+          if (!this.grid.has(key)) continue;
+          for (const client of this.grid.get(key)) {
+            if (client.queryId !== queryId) {
+              client.queryId = queryId;
+              clients.push(client);
             }
           }
           if (displayGridCheck) rect(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize);
           cellsChecked++;
         }
       }
-      popMatrix();
+      if (displayGridCheck) popMatrix();
       return clients;
     }
     remove(client) {
@@ -347,7 +351,7 @@ function program() {
       }
     }
     draw() {
-      stroke(new Color(0, 0, 0.8, "HSV").value());
+      stroke(204);
       pushMatrix();
       translate(canvasHalfWidth, canvasHalfHeight);
       for (let x = ceil(-width / this.cellSize) * this.cellSize; x <= canvasHalfWidth; x += this.cellSize)
@@ -441,7 +445,7 @@ function program() {
           sum.add(vertex);
         }
         this.cachedCenter = sum.copy().divide(this.vertices.length);
-        if (this.cachedCenter.sqMag() < epsilon) [this.cachedCenter.x, this.cachedCenter.y] = [0, 0];
+        if (this.cachedCenter.getSqMag() < epsilon) [this.cachedCenter.x, this.cachedCenter.y] = [0, 0];
         this.center = this.cachedCenter.copy();
 
         let maxSqRadius = -Infinity;
@@ -452,13 +456,13 @@ function program() {
           let normal = edge.copy().perpendicular().normalize();
 
           const direction = this.cachedCenter.copy().subtract(normal);
-          maxSqRadius = max(vertex.copy().subtract(this.center).sqMag(), maxSqRadius);
+          maxSqRadius = max(vertex.copy().subtract(this.center).getSqMag(), maxSqRadius);
           const dotProd = normal.x * direction.x + normal.y * direction.y;
           if (dotProd < 0) normal.multiply(-1);
           this.cachedNormals[i] = normal.normalize();
           this.normals[i] = this.cachedNormals[i].copy();
         }
-        for (const normal of this.cachedNormals) if (normal.mag() > 1) println("oh no");
+        for (const normal of this.cachedNormals) if (normal.getMag() > 1) println("oh no");
         this.radius = sqrt(maxSqRadius);
         // Better for more uniform shapes (this scenario)
         this.aabb.width = 2 * this.radius;
@@ -533,7 +537,7 @@ function program() {
       if (this.type === "Circle") {
         const center = this.center.copy().add(base.position);
         const projection = axis.x * center.x + axis.y * center.y;
-        const radiusProjection = this.radius * axis.mag();
+        const radiusProjection = this.radius * axis.getMag();
         min = projection - radiusProjection;
         max = projection + radiusProjection;
       } else {
@@ -559,12 +563,12 @@ function program() {
         // get closest point on side
         const sideAB = vertexB.copy().subtract(vertexA);
         const sideACenter = center.copy().subtract(vertexA);
-        let projection = (sideACenter.x * sideAB.x + sideACenter.y * sideAB.y) / sideAB.sqMag();
+        let projection = (sideACenter.x * sideAB.x + sideACenter.y * sideAB.y) / sideAB.getSqMag();
 
         projection = constrain(projection, 0, 1);
         const point = vertexA.copy().add(sideAB.copy().multiply(projection));
         const difference = point.copy().subtract(center);
-        const distanceSquared = difference.sqMag();
+        const distanceSquared = difference.getSqMag();
         if (distanceSquared < minDistanceSquared) {
           minDistanceSquared = distanceSquared;
           closestPoint = point;
@@ -604,22 +608,26 @@ function program() {
       this.ticks++;
       this.position.add(this.velocity.copy().multiply(dt));
       this.dir += this.omega * dt;
+
+      const velocity = this.velocity.getMag();
+      if (velocity > mu) this.velocity.subtract(this.velocity.copy().multiply(mu / velocity));
+      else this.velocity = new Vector(0, 0);
+
       if (abs(this.position.x) > canvasHalfWidth + this.hitbox.aabb.width / 2) {
         this.position.x = -Math.sign(this.position.x) * (canvasHalfWidth + this.hitbox.aabb.width / 2);
       }
       if (abs(this.position.y) > canvasHalfHeight + this.hitbox.aabb.height / 2) {
         this.position.y = -Math.sign(this.position.y) * (canvasHalfHeight + this.hitbox.aabb.width / 2);
       }
+
       if (this.ticks % (60 * dt) === 0 && periodicVelocityShifts) {
         const scale = considerablyLargeAmountOfBoxesToInsert ? 0.5 : 1;
         this.velocity = new Vector(random(0, 2 * PI), random(2, 5) * scale, "dirMag");
         this.omega = random(-0.1, 0.1) * scale;
       }
-      if (focus === this.id) {
-        this.shape.color = new Color(110, 0.4, 1, "HSV");
-      } else {
-        this.shape.color = this.trueColor;
-      }
+
+      if (focus === this.id) this.shape.color = new Color(110, 0.4, 1, "HSV");
+      else this.shape.color = this.trueColor;
     }
     draw() {
       pushMatrix();
@@ -647,7 +655,7 @@ function program() {
           .copy()
           .add(baseA.position)
           .subtract(baseB.hitbox.center.copy().add(baseB.position))
-          .sqMag();
+          .getSqMag();
         const radiiSum = baseA.hitbox.radius + baseB.hitbox.radius;
         if (sqDistance > sq(radiiSum)) {
           return { colliding: false };
@@ -739,7 +747,7 @@ function program() {
 
       if (!collisionImpulse) return;
 
-      if (axis.mag() > 1.1) println("Non normalized axis");
+      if (axis.getMag() > 1.1) println("Non normalized axis");
       const tangent = axis.copy().perpendicular();
       // get components of each object's velocity (scalar quantities)
       // only velocity parallel to collision axis affected by collision
@@ -763,12 +771,15 @@ function program() {
 
   let boxes = [];
   const insertCount = considerablyLargeAmountOfBoxesToInsert ? 1000 : veryMoreBoxes ? 200 : 0;
-  const s = considerablyLargeAmountOfBoxesToInsert ? 8 : 20;
+  const scale = considerablyLargeAmountOfBoxesToInsert ? 8 : 20;
   for (let i = 0; i < insertCount; i++) {
     const shape =
       (ceil(random(0, 5)) > 2 && !allCircles) || allPolys
-        ? newPolygon(regularPolyVerts(0, 0, ceil(random(s, s + 3)), ceil(random(2, 5))), new Color(255, 0, 0))
-        : newCircle(new Vector(0, 0), ceil(random(s, s + 5)), new Color(255, 0, 0));
+        ? newPolygon(
+            regularPolyVerts(0, 0, ceil(random(scale, scale + 3)), ceil(random(2, 5))),
+            new Color(255, 0, 0)
+          )
+        : newCircle(new Vector(0, 0), ceil(random(scale, scale + 5)), new Color(255, 0, 0));
     boxes.push(
       new Base({
         position: new Vector(
@@ -900,14 +911,16 @@ function program() {
   }
 
   const collisionSet = new Set();
+  let KE = 0;
   function draw() {
+    KE = 0;
     lastFrame = millis();
     Perf.resetMetrics();
     collisionSet.clear();
     collisions = [];
     cellsChecked = 0;
     ticksSinceInput++;
-    background(new Color(255, 255, 255).value());
+    background(255);
     fill(255, 0, 0);
     world.draw();
 
@@ -915,13 +928,16 @@ function program() {
 
     if (keys[32] & (ticksSinceInput >= 30)) {
       focus = (focus + 1) % boxes.length;
+      for (const box of boxes) box.velocity.add(new Vector(random(0, 2 * PI), random(5, 15), "dirMag"));
       ticksSinceInput = 0;
     }
     for (const box of boxes) {
+      KE += box.velocity.getSqMag();
       box.update();
+      Perf.updateMetric("boxUpdate");
       if (focus === box.id) box.getInput();
       box.hitbox.broadUpdate(box);
-      Perf.updateMetric("broadUpdate");
+      Perf.updateMetric("aabbUpdate");
       world.update(box);
       Perf.updateMetric("gridUpdate");
     }
@@ -931,8 +947,8 @@ function program() {
     for (const box of boxes) {
       const aabb = box.hitbox.aabb;
       Perf.getTime();
-      const clients = world.findNear(box.position.copy().add(aabb.center), aabb.width, aabb.height);
-      Perf.updateMetric("hashGridQuery");
+      const clients = world.queryGrid(box.position.copy().add(aabb.center), aabb.width, aabb.height);
+      Perf.updateMetric("gridQuery");
 
       for (const client of clients) {
         // skip duplicate collision check with self
@@ -947,7 +963,7 @@ function program() {
           .copy()
           .add(box.position)
           .subtract(client.hitbox.center.copy().add(client.position))
-          .sqMag();
+          .getSqMag();
         const radiiSum = box.hitbox.radius + client.hitbox.radius;
         if (sqDistance > sq(radiiSum)) continue;
 
@@ -956,7 +972,7 @@ function program() {
         // narrow update before full check
         box.hitbox.narrowUpdate(box);
         client.hitbox.narrowUpdate(client);
-        Perf.updateMetric("narrowUpdate");
+        Perf.updateMetric("hitboxUpdate");
 
         const collision = box.checkCollision(client);
         Perf.updateMetric("satCheck");
@@ -968,7 +984,7 @@ function program() {
     if (ticks === 0) {
       Perf.getTime();
       Perf.updateMetric("priorCheck");
-      Perf.updateMetric("narrowUpdate");
+      Perf.updateMetric("hitboxUpdate");
       Perf.updateMetric("satCheck");
     }
 
@@ -1013,16 +1029,38 @@ function program() {
       "Object Count",
       boxes.length,
       "Collision Count",
-      collisions.length
+      collisions.length,
+      "Kinetic Energy",
+      KE.toFixed(3)
     ];
 
+    textAlign(LEFT, TOP);
+    textFont(fontBold, 24);
+
     const dataToDisplay = ["average", "max", "percentage"];
-    textSize(12);
+    const margin = 4;
+    const padding = 8;
+
+    const dataWidth = 140;
+    const keyWidth = 210;
+    const columnGap = 16;
+
+    const rowHeight = textAscent() + textDescent();
+    const initialRowGap = 16;
+    const rowGap = 12;
+    const start = margin + padding;
+
+    const metricDisplayWidth = padding + keyWidth + dataToDisplay.length * (dataWidth + columnGap) + padding;
     fill(0, 0, 0, 120);
     pushMatrix();
-    rect(4, 4, dataToDisplay.length * 256, 4 + Object.keys(Perf.metrics).length * 40 + 32);
+    const metricCount = Object.keys(Perf.metrics).length;
+    rect(
+      margin,
+      margin,
+      metricDisplayWidth,
+      padding + (metricCount + 1) * rowHeight + metricCount * rowGap + initialRowGap + padding
+    );
     fill(255, 255, 255);
-    textAlign(LEFT, TOP);
 
     if (ticks % displayPeriod === 0) {
       let out = {};
@@ -1034,24 +1072,38 @@ function program() {
       }
     }
 
-    textFont(fontBold, 24);
-
-    text("Key", 8, 8);
-    let dx = 256;
+    let dx, dy;
+    dy = dx = start;
+    text("Key", dx, dy);
+    dx += keyWidth + columnGap;
     for (const dataKey of dataToDisplay) {
-      text(dataKey[0].toUpperCase() + dataKey.slice(1), dx, 8);
-      dx += 140;
+      text(dataKey[0].toUpperCase() + dataKey.slice(1), dx, dy);
+      dx += dataWidth + columnGap;
     }
 
     fill(255, 255, 255);
     noStroke();
-    rect(8, 42, dataToDisplay.length * 210 + 60, 2);
+    rect(
+      start,
+      start + rowHeight + initialRowGap / 1.5,
+      dataToDisplay.length * (dataWidth + columnGap) + keyWidth,
+      3
+    );
 
     textFont(font, 24);
-    let dy = 48;
+    dx = start + keyWidth + columnGap;
+    dy += rowHeight + initialRowGap;
 
+    let i = 0;
     for (const key in Perf.metrics) {
+      let ddx = dx;
       const metric = Perf.metrics[key].savedData;
+
+      if (i % 2 === 0) {
+        fill(0, 0, 0, 50);
+        rect(margin, dy, metricDisplayWidth, rowHeight + rowGap);
+        fill(255);
+      }
 
       let formattedKey = [];
       for (let i = 0; i < key.length; i++) {
@@ -1064,28 +1116,37 @@ function program() {
         else formattedKey.push(character);
       }
 
-      text(`${formattedKey.join("")}:`, 8, dy);
+      text(`${formattedKey.join("")}:`, start, dy);
 
-      let dx = 256;
       for (const dataKey of dataToDisplay) {
         let data = metric[dataKey];
         const unit = dataKey === "percentage" ? "%" : "ms";
         data = isNaN(data) ? displayPeriod - ticks / dt : `${data.toFixed(3)} ${unit}`;
 
-        text(data, dx, dy);
-        dx += 140;
+        text(data, ddx, dy);
+        ddx += dataWidth + columnGap;
       }
 
-      dy += 40;
+      dy += rowHeight + rowGap;
+      i++;
     }
 
     fill(0, 0, 0, 120);
     stroke(0);
-    rect(4, height - 4, 230, -4 - countMetrics.length * 20);
+    const counterDisplayHeight = padding + (countMetrics.length / 2) * (rowHeight + rowGap) + padding;
+    const counterDisplayWidth = padding + keyWidth + columnGap + dataWidth + padding;
+    rect(margin, height - margin - counterDisplayHeight, counterDisplayWidth, counterDisplayHeight);
     fill(255);
-    textAlign(LEFT, TOP);
+    dy = height - margin - counterDisplayHeight + padding;
     for (let i = 0; i < countMetrics.length; i += 2) {
-      text(`${countMetrics[i]}: ${countMetrics[i + 1]}`, 8, height - 4 - countMetrics.length * 20 + i * 20);
+      if (i % 4 === 0) {
+        fill(0, 0, 0, 50);
+        rect(margin, dy, counterDisplayWidth, rowHeight + rowGap);
+        fill(255);
+      }
+      text(countMetrics[i] + ":", start, dy);
+      text(countMetrics[i + 1], start + keyWidth + columnGap, dy);
+      dy += rowHeight + rowGap;
     }
     popMatrix();
 
