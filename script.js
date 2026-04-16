@@ -5,21 +5,22 @@ function program() {
   const canvasHalfHeight = height / 2;
 
   // Simulation Options
-  const initialVelocity = false; // objects begin with an intial velocity
+  const initialVelocity = true; // objects begin with an intial velocity
   const periodicVelocityShifts = false; // velocity randomized periodically
   const velocityMagnitude = 5; // alters the magnitude of said velocity
 
   const collisionImpulse = true; // objects bounce off each other on collision
-  const restitution = 0.75; // collision bounciness. Values < 1 yield loss of energy. Values > 1 break the first law of thermodynamics
-  const mu = 0.01; // add friction (should be quite small)
+  const restitution = 1; // collision bounciness. Values < 1 yield loss of energy. Values > 1 break the first law of thermodynamics
+  const mu = 0; // add friction (should be quite small)
 
   const allCircles = false; // all shapes are circles. Increases performance as well
   const allPolys = false; // all shapes are polygons. Slightly more performance intensive
   const gridSize = 50; // influences hashgrid check. Can queak for minor performance improvement
 
   // Box Count
-  const insertCount = 0;
-  const scale = 12;
+  const insertCount = 50;
+  const scale = 32;
+  const scaleVariance = 0.3;
   // const moreBoxes = true; // replaces the usual two boxes with 5
   // const veryMoreBoxes = true; // a lot of boxes
   // const considerablyLargeAmountOfBoxesToInsert = true; // way too many boxes
@@ -402,20 +403,22 @@ function program() {
     return vertices;
   }
 
-  function newPolygon(vertices, color, type) {
+  function newPolygon(vertices, color, type, rho) {
     type = type || "Polygon";
     return new Shape({
       vertices: vertices,
       color: color,
-      type: type
+      type: type,
+      rho: rho
     });
   }
-  function newCircle(center, radius, color) {
+  function newCircle(center, radius, color, rho) {
     return new Shape({
       type: "Circle",
       center: center,
       radius: radius,
-      color: color
+      color: color,
+      rho: rho
     });
   }
 
@@ -428,7 +431,9 @@ function program() {
         this.center = params.center ?? new Vector(0, 0);
         this.radius = params.radius;
       }
-      this.rho = 1;
+      this.rho = params.rho ?? 1;
+      this.area = this.getArea();
+      this.mass = this.rho * this.area;
     }
     getCentroid(vertices) {
       vertices = vertices ?? this.vertices;
@@ -569,8 +574,9 @@ function program() {
       noFill();
       for (let i = 0; i < this.trianglesIndices.length; i += 3) {
         base.trueColor.toHSV();
+        stroke(0, 0, 0, 100);
         let hue = base.trueColor.channels[0];
-        hue = map(i, 0, this.trianglesIndices.length - 1, hue, hue + 6);
+        hue = map(i, 0, this.trianglesIndices.length - 1, hue, hue + 20);
         fill(new Color(hue, 0.6, 1, "HSV").value());
         triangle(
           this.vertices[this.trianglesIndices[i]].x,
@@ -752,6 +758,7 @@ function program() {
       if (initialVelocity)
         this.velocity = new Vector(random(0, 2 * PI), velocityMagnitude * random(0.75, 1.25), "dirMag");
       else this.velocity = new Vector(0, 0);
+      this.velocity = params.velocity ?? this.velocity;
       this.omega = 0;
       this.ticks = floor(random(0, 50));
     }
@@ -901,9 +908,13 @@ function program() {
       const baseA = data.baseA;
       const bases = [baseA, baseB];
 
-      const displacement = MTV.copy().multiply(0.5 + epsilon);
-      baseA.position = baseA.position.copy().subtract(displacement);
-      baseB.position.add(displacement);
+      const massA = baseA.hitbox.mass,
+        massB = baseB.hitbox.mass;
+
+      const displacementA = MTV.copy().multiply(massB / (massA + massB));
+      const displacementB = MTV.copy().multiply(massA / (massA + massB));
+      baseA.position.subtract(displacementA);
+      baseB.position.add(displacementB);
       // get contact points
       let contactPoints = [];
       const collisionType = baseA.hitbox.type + "-" + baseB.hitbox.type;
@@ -953,7 +964,7 @@ function program() {
         const centerAToCenterB = baseB.position.copy().subtract(baseA.position).normalize();
         contactPoints.push(baseA.position.copy().add(centerAToCenterB.copy().multiply(baseA.hitbox.radius)));
       }
-      console.log(contactPoints.length);
+
       for (const point of contactPoints) {
         pushMatrix();
         translate(canvasHalfWidth, canvasHalfHeight);
@@ -973,13 +984,13 @@ function program() {
 
       baseA.velocity = axis
         .copy()
-        .multiply(pVelocityA + pVelocityB - restitution * (pVelocityA - pVelocityB))
-        .divide(2)
+        .multiply(massA * pVelocityA + massB * pVelocityB - massB * restitution * (pVelocityA - pVelocityB))
+        .divide(massA + massB)
         .add(tangent.copy().multiply(tVelocityA));
       baseB.velocity = axis
         .copy()
-        .multiply(pVelocityA + pVelocityB + restitution * (pVelocityA - pVelocityB))
-        .divide(2)
+        .multiply(massA * pVelocityA + massB * pVelocityB + massA * restitution * (pVelocityA - pVelocityB))
+        .divide(massA + massB)
         .add(tangent.copy().multiply(tVelocityB));
     }
   }
@@ -989,9 +1000,14 @@ function program() {
   // const scale = considerablyLargeAmountOfBoxesToInsert ? 8 : 20;
   for (let i = 0; i < insertCount; i++) {
     const shape =
-      (ceil(random(0, 5)) > 2 && !allCircles) || allPolys
+      (ceil(random(0, 5)) > 3 && !allCircles) || allPolys
         ? newPolygon(
-            regularPolyVerts(0, 0, ceil(scale * random(0.9, 1.1)), ceil(random(2, 5))),
+            regularPolyVerts(
+              0,
+              0,
+              ceil(scale * random(1 - scaleVariance, 1 + scaleVariance)),
+              ceil(random(2, 10))
+            ),
             new Color(255, 0, 0)
           )
         : newCircle(new Vector(0, 0), ceil(scale * random(0.9, 1.1)), new Color(255, 0, 0));
@@ -1006,36 +1022,33 @@ function program() {
       })
     );
   }
-
-  boxes.push(
-    new Base({
-      position: new Vector(-100, 0),
-      dir: 0,
-      //shape: newPolygon(regularPolyVerts(0, 0, 35, 4), new Color(255, 0, 0))
-      shape: newCircle(new Vector(0, 0), 20, new Color(255, 0, 0))
-    }),
-    new Base({
-      position: new Vector(100, 0),
-      dir: 0,
-      shape: newPolygon(regularPolyVerts(0, 0, 35, 5), new Color(255, 0, 0))
-    }),
-    new Base({
-      position: new Vector(0, -100),
-      dir: 0,
-      // shape: newPolygon(regularPolyVerts(0, 0, 35, 5), new Color(255, 0, 0))
-      shape: newCircle(new Vector(0, 0), 35, new Color(255, 0, 0))
-    }),
-    new Base({
-      position: new Vector(0, 100),
-      dir: 0,
-      shape: newPolygon(regularPolyVerts(0, 0, 35, 8), new Color(255, 0, 0))
-    })
-  );
-
-  console.log("Area", boxes[boxes.length - 1].hitbox.getArea());
-  console.log("Area", boxes[boxes.length - 2].hitbox.getArea());
-  console.log("Moment Of Inertia", boxes[boxes.length - 1].hitbox.getMomentOfInertia());
-  console.log("Moment Of Inertia", boxes[boxes.length - 2].hitbox.getMomentOfInertia());
+  if (insertCount === 0)
+    boxes.push(
+      new Base({
+        position: new Vector(-100, 0),
+        dir: 0,
+        velocity: new Vector(100, 0),
+        //shape: newPolygon(regularPolyVerts(0, 0, 35, 4), new Color(255, 0, 0))
+        shape: newCircle(new Vector(0, 0), 20, new Color(255, 0, 0))
+      }),
+      new Base({
+        position: new Vector(100, 0),
+        dir: 0,
+        //shape: newPolygon(regularPolyVerts(0, 0, 55, 5), new Color(255, 0, 0))
+        shape: newCircle(new Vector(0, 0), 100, new Color(255, 0, 0), 1)
+      }),
+      new Base({
+        position: new Vector(0, -100),
+        dir: 0,
+        // shape: newPolygon(regularPolyVerts(0, 0, 35, 5), new Color(255, 0, 0))
+        shape: newCircle(new Vector(0, 0), 35, new Color(255, 0, 0))
+      }),
+      new Base({
+        position: new Vector(0, 100),
+        dir: 0,
+        shape: newPolygon(regularPolyVerts(0, 0, 35, 8), new Color(255, 0, 0))
+      })
+    );
 
   const displayPeriod = 60;
   class Performance {
@@ -1144,7 +1157,7 @@ function program() {
       ticksSinceInput = 0;
     }
     for (const box of boxes) {
-      KE += box.velocity.getSqMag();
+      KE += box.hitbox.mass * box.velocity.getSqMag();
       box.update();
       Perf.updateMetric("boxUpdate");
       if (focus === box.id) box.getInput();
