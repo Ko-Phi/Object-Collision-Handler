@@ -5,7 +5,7 @@ function program() {
   const canvasHalfHeight = height / 2;
 
   // Simulation Options
-  const initialVelocity = true; // objects begin with an intial velocity
+  const initialVelocity = false; // objects begin with an intial velocity
   const periodicVelocityShifts = false; // velocity randomized periodically
   const velocityMagnitude = 5; // alters the magnitude of said velocity
 
@@ -48,11 +48,6 @@ function program() {
     else if (index < 0) return this[(index % this.length) + this.length];
     else return this[index];
   };
-  function getItem(array, index) {
-    if (index >= array.length) return array[index % array.length];
-    else if (index < 0) return array[(index % array.length) + array.length];
-    else return array[index];
-  }
 
   let idCount = 0;
   const newid = () => idCount++;
@@ -380,6 +375,41 @@ function program() {
         this.center = params.center ?? new Vector(0, 0);
         this.radius = params.radius;
       }
+    }
+
+    draw(dx = 0, dy = 0, base) {
+      if (!sameColor) fill(this.color.cachedValue);
+      if (this.type === "Polygon") {
+        beginShape();
+        for (const vert of this.vertices) vertex(vert.x + dx, vert.y + dy);
+        endShape(CLOSE);
+      } else if (this.type === "Circle") {
+        ellipse(this.center.x, this.center.y, this.radius * 2, this.radius * 2);
+        line(
+          this.center.x,
+          this.center.y,
+          this.radius * cos(base.dir),
+          this.radius * sin(base.dir),
+        );
+      }
+    }
+  }
+
+  class Hitbox extends Shape {
+    constructor(shape, base, params) {
+      super(shape);
+      this.rotatedVertices = [];
+      this.transformedVertices = [];
+      this.normals = [];
+      this.cachedDir = null;
+      this.lastUpdate = "None";
+      this.aabb = {};
+      this.cachedNormals = [];
+
+      this.cacheUpdate(base);
+      this.shallowUpdate(base);
+      this.trianglesIndices = this.getTriangleIndices();
+
       this.rho = params.rho ?? 1;
       this.area = this.getArea();
       this.mass = this.rho * this.area;
@@ -396,13 +426,12 @@ function program() {
       if (this.type === "Circle") return PI * sq(this.radius);
       // something something shoelaces
       return (
-        0.5 *
         abs(
           vertices.reduce((area, vertex, index, vertices) => {
             const nextVertex = vertices[(index + 1) % vertices.length];
-            return area + vertex.x * nextVertex.y - vertex.y * nextVertex.x;
+            return area + vertex.crossProduct(nextVertex);
           }, 0),
-        )
+        ) / 2
       );
     }
     getMomentOfInertia(vertices) {
@@ -410,9 +439,9 @@ function program() {
         return 0.5 * this.getArea() * this.rho * sq(this.radius);
 
       vertices = vertices ?? this.vertices;
-      const area = this.area ?? Shape.prototype.getArea(vertices);
+      const area = this.area ?? Hitbox.prototype.getArea(vertices);
       const trianglesIndices =
-        this.trianglesIndices ?? Shape.prototype.getTriangleIndices(vertices);
+        this.trianglesIndices ?? Hitbox.prototype.getTriangleIndices(vertices);
 
       if (vertices.length === 3) {
         // follows formula I = M / 6 * (a^2 + b^2 + c^2) for triangular lamina about their polar centroidal axis. very clean indeed
@@ -427,7 +456,7 @@ function program() {
         );
       }
 
-      let centroid = this.centroid ?? Shape.prototype.getCentroid(vertices);
+      let centroid = this.centroid ?? Hitbox.prototype.getCentroid(vertices);
 
       let trianglesVertices = [];
       for (let i = 0; i < trianglesIndices.length; i += 3) {
@@ -441,12 +470,12 @@ function program() {
       return trianglesVertices.reduce((sum, triangleVertices) => {
         // follows parallel axis theorem (I = I_cm + Md^2)
         let momentOfInertia =
-          Shape.prototype.getMomentOfInertia(triangleVertices);
-        let radiusSquared = Shape.prototype
+          Hitbox.prototype.getMomentOfInertia(triangleVertices);
+        let radiusSquared = Hitbox.prototype
           .getCentroid(triangleVertices)
           .subtract(centroid)
           .getSqMag();
-        let mass = Shape.prototype.getArea(triangleVertices) * this.rho;
+        let mass = Hitbox.prototype.getArea(triangleVertices) * this.rho;
         return sum + momentOfInertia + mass * radiusSquared;
       }, 0);
     }
@@ -458,9 +487,9 @@ function program() {
       let attempts = 0;
       while (vertexIndices.length > 3 && attempts < 300) {
         checkPossibleEar: for (let i = 0; i < vertexIndices.length; i++) {
-          const indexA = getItem(vertexIndices, i - 1);
+          const indexA = vertexIndices.getItem(i - 1);
           const indexB = vertexIndices[i];
-          const indexC = getItem(vertexIndices, i + 1);
+          const indexC = vertexIndices.getItem(i + 1);
 
           const vertexA = vertices[indexA];
           const vertexB = vertices[indexB];
@@ -481,7 +510,7 @@ function program() {
             let hasNegative, hasPositive;
             triangleVertices.forEach((vector, indexIndex, thisArray) => {
               const currentVertex = vector;
-              const nextVertex = getItem(thisArray, indexIndex + 1);
+              const nextVertex = thisArray.getItem(indexIndex + 1);
 
               const vectorCurrNext = nextVertex.copy().subtract(currentVertex);
 
@@ -503,39 +532,6 @@ function program() {
       if (attempts > 300) console.log("failure");
       trianglesIndices.push(...vertexIndices);
       return trianglesIndices;
-    }
-    draw(dx = 0, dy = 0, base) {
-      if (!sameColor) fill(this.color.cachedValue);
-      if (this.type === "Polygon") {
-        beginShape();
-        for (const vert of this.vertices) vertex(vert.x + dx, vert.y + dy);
-        endShape(CLOSE);
-      } else if (this.type === "Circle") {
-        ellipse(this.center.x, this.center.y, this.radius * 2, this.radius * 2);
-        line(
-          this.center.x,
-          this.center.y,
-          this.radius * cos(base.dir),
-          this.radius * sin(base.dir),
-        );
-      }
-    }
-  }
-
-  class Hitbox extends Shape {
-    constructor(shape, base) {
-      super(shape);
-      this.rotatedVertices = [];
-      this.transformedVertices = [];
-      this.normals = [];
-      this.cachedDir = null;
-      this.lastUpdate = "None";
-      this.aabb = {};
-      this.cachedNormals = [];
-
-      this.cacheUpdate(base);
-      this.shallowUpdate(base);
-      this.trianglesIndices = this.getTriangleIndices();
     }
     drawTriangles(base) {
       noFill();
@@ -733,7 +729,7 @@ function program() {
       this.shape = params.shape || 0;
       this.trueColor = new Color(random(-15, 40), 0.6, 1, "HSV");
 
-      this.hitbox = new Hitbox(params.shape, this);
+      this.hitbox = new Hitbox(params.shape, this, params);
       this.axesBuffer = [];
       if (initialVelocity) {
         this.velocity = new Vector(
