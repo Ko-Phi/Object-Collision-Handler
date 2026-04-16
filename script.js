@@ -1,6 +1,7 @@
 function program() {
   title("Mass Object Collision Handler");
   size(1800, 1200);
+
   const canvasHalfWidth = width / 2;
   const canvasHalfHeight = height / 2;
 
