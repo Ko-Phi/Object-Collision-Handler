@@ -34,85 +34,6 @@ function program() {
   const sameColor = false; // shapes drawn with the same color. Minor performance gain
   const displayTriangulation = true;
 
-  /**
-	  *VISUALIZER FLASHING WARNING WHEN OBJECTS COLLIDE AT CORNERS*
-	  WASD or Arrow Keys to move, Q/R to rotate, Space to change boxes
-	  
-	  The number of necessary SAT checks has dropped significantly with the implementation of a HashGrid system and radius camparison, with counts in O(n + k) territory
-	  That said, this project still remains quite instable when many dynamic objects are put into play
-	  This is mainly due to constant hitbox geometry updates that you probably won't see in an actual game
-	  Oh and memory allocation, but thats evil and scary, so we don't talk about that
-	  
-	  Also, do note that certain collisions, especially those chained between fast moving, rotating objects, may not be resolved properly within the time frame of a single physics update.
-	  This takes the form of object-object clipping, with is a major problem f
-	  To solve this, one could repeat the collision check-handle loop a couple times per frame, though this of course would be pretty resource intensive.
-	  
-	  Potential Optimizations {
-	  Implementations {
-	  HashGrid (very useful)
-	  Duplicate purging
-	  Caching unrotated normals, rotating them when necessary
-	  Caching unrotated centers, rotating them when necessary 
-	  (I think theres a pattern)
-	  Stop calculating transformed vertices inside the hitbox, do it during SAT / when finding closest point
-	  Maybe you don't need perfectly minimized and translated AABBs
-	  Only do AABB updates for each object, refrain from full geometry update until broadphase passed
-	  Quick radii check (very free)
-	  }
-	  Do scalar math to prevent object allocation / garbage 
-	  collector strain (I don't wanna)
-	  }
-	  
-	  Pipeline {
-	      The project loops over each object, performing a broad update, which checks if the object is rotated, yielding a aabb recalculation if true
-	      After doing so, a hashgrid query is performed on every object, using each's aabb as input.
-	      This returns an array of that shape's grid cell neighbors.
-	      This array is then looped over, with duplicate entries and collisions (determined by shape ids) skipped.
-	      A quick radius-radius check is made between the main shape and each possible other shape.
-	      Only if this check is past, that a narrow update is peformed on each object, allowing for a proper SAT check
-	  }
-	  
-	  Seperating Axis Theorem {
-	  If one can draw a line between two objects, those two objects are seperate
-	  Conversely, if a line cannot be drawn, those objects are touching
-	  To find the seperating axis, which is perpendicular to 
-	  this line, one must consult each polygon's normals (perpendicular to each side)
-	  By projecting each shape onto each normal, one can check for overlap between shapes
-	  Only one instance of seperation is need to conclude that two objects are apart
-	  If all seperation checks fail, the objects are touching
-	  The Minimum Translation Vector (MTV), which pushes touching objects apart, can be found by multiplying the minimum overlap across all checks with its corresponding normal (normalized and reorientated from object A to B)
-	  }
-	  
-	  Visualization Details {
-	      Broadphase {
-	          The transparent shadows under a shape represent its AABB (axis aligned bounding bounding box (basically a rectangle)) and maximum radius. The AABB is used by the HashGrid to query surrounding cells, which are represented by the grid.
-	          }
-	      SAT {
-	          The black line between the objects objects is what indicates their seperation
-	          Perpendicular to this line is the gray axis of seperation
-	          The translucent rectangles represent each object's projection on to this axis
-	          For Circle-Polygon collision detection, an additional lineis drawn
-	          This line indicates the closest point from the circle's center to the other object
-	          For this kind of collision detection, this extra axis is needed for proper checks
-	          The gray dots on each object represents the point at which they rotate about
-	          As for the gold dots, they represent the object's geometric center
-	          Gold dots may sometimes cover gray ones
-	          The green object is the one currently controllable via keyboard input
-	      }
-	  }
-	  
-	  Changelog {
-	      Do excuse my shoddy implementation, will refine later on
-	      Now works for all non-concave polygons!
-	      Spent so-long frustrated over circle-polygon collision
-	      Can now properly push objects
-	      Have as many boxes as you want
-	      Spatial Grid purges many easy non-collisions
-	      Box updates split between broad (all boxes) and narrow (potential collisions)
-	      Broad update made very fast with the use of caching and approximated AABBS
-	  }
-	  **/
-
   angleMode = "radians";
   frameRate(FPS);
   const dt = 60 / FPS;
@@ -120,7 +41,6 @@ function program() {
   // quite small
   const epsilon = 1e-6;
   const rounD = (num, deciPlace) => round(num * pow(10, deciPlace)) / pow(10, deciPlace);
-  const ehhItsCloseEnoughMan = (numA, numB) => abs(numA - numB) < epsilon;
 
   Array.prototype.getItem = function (index) {
     if (index >= this.length) return this[index % this.length];
@@ -919,7 +839,8 @@ function program() {
       let contactPoints = [];
       const collisionType = baseA.hitbox.type + "-" + baseB.hitbox.type;
       if (collisionType === "Polygon-Polygon") {
-        /* A is the checked vertex. BC is the current edge of the other base. P is the closest point
+        /* Visualization:
+         * A is the checked vertex. BC is the current edge of the other base. P is the closest point
               /B
              / |
             /  |
@@ -928,6 +849,7 @@ function program() {
              \ |
               \C
         */
+
         // base loop
         bases.forEach((base, index, bases) => {
           const otherBase = bases.getItem(index + 1);
@@ -996,8 +918,6 @@ function program() {
   }
 
   let boxes = [];
-  // const insertCount = considerablyLargeAmountOfBoxesToInsert ? 1000 : veryMoreBoxes ? 200 : 0;
-  // const scale = considerablyLargeAmountOfBoxesToInsert ? 8 : 20;
   for (let i = 0; i < insertCount; i++) {
     const shape =
       (ceil(random(0, 5)) > 3 && !allCircles) || allPolys
