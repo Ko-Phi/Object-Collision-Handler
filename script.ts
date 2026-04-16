@@ -5,7 +5,7 @@ function program() {
   const canvasHalfHeight = height / 2;
 
   // Simulation Options
-  const initialVelocity = true; // objects begin with an intial velocity
+  const initialVelocity = false; // objects begin with an intial velocity
   const periodicVelocityShifts = false; // velocity randomized periodically
   const velocityMagnitude = 5; // alters the magnitude of said velocity
 
@@ -40,10 +40,10 @@ function program() {
 
   // quite small
   const epsilon = 1e-6;
-  const rounD = (num, deciPlace) =>
+  const rounD = (num: number, deciPlace: number) =>
     round(num * pow(10, deciPlace)) / pow(10, deciPlace);
 
-  Array.prototype.getItem = function (index) {
+  Array.prototype.getItem = function (index: number): any {
     if (index >= this.length) return this[index % this.length];
     else if (index < 0) return this[(index % this.length) + this.length];
     else return this[index];
@@ -59,18 +59,20 @@ function program() {
   // componentInit: x, y
   // dirMagInit: dir, mag
   class Vector {
-    constructor(input1, input2, init = "component") {
+    x: number;
+    y: number;
+    constructor(input1: number, input2: number, init = "component") {
       let x, y;
       if (init === "component") [x, y] = [input1, input2];
       if (init === "dirMag")
         [x, y] = [input2 * Math.cos(input1), input2 * Math.sin(input1)];
-      [this.x, this.y] = [x, y];
+      [this.x, this.y] = [x ?? 0, y ?? 0];
     }
     copy = () => new Vector(this.x, this.y);
     getSqMag = () => sq(this.x) + sq(this.y);
     getMag = () => sqrt(this.getSqMag());
     theta = () => Math.atan2(this.y, this.x);
-    add(vector) {
+    add(vector: Vector | number) {
       let vectorX, vectorY;
       if (typeof vector === "number") vectorX = vectorY = vector;
       else [vectorX, vectorY] = [vector.x, vector.y];
@@ -78,7 +80,7 @@ function program() {
       this.y += vectorY;
       return this;
     }
-    subtract(vector) {
+    subtract(vector: Vector | number) {
       let vectorX, vectorY;
       if (typeof vector === "number") vectorX = vectorY = vector;
       else [vectorX, vectorY] = [vector.x, vector.y];
@@ -86,7 +88,7 @@ function program() {
       this.y -= vectorY;
       return this;
     }
-    multiply(vector) {
+    multiply(vector: Vector | number) {
       let vectorX, vectorY;
       if (typeof vector === "number") vectorX = vectorY = vector;
       else [vectorX, vectorY] = [vector.x, vector.y];
@@ -94,7 +96,7 @@ function program() {
       this.y *= vectorY;
       return this;
     }
-    divide(vector) {
+    divide(vector: Vector | number) {
       let vectorX, vectorY;
       if (typeof vector === "number") vectorX = vectorY = vector;
       else [vectorX, vectorY] = [vector.x, vector.y];
@@ -107,13 +109,13 @@ function program() {
       if (mag === 0) return this;
       return this.divide(mag);
     }
-    dotProduct(vector) {
+    dotProduct(vector: Vector | number) {
       let vectorX, vectorY;
       if (typeof vector === "number") vectorX = vectorY = vector;
       else [vectorX, vectorY] = [vector.x, vector.y];
-      return this.x * vector.x + this.y * vector.y;
+      return this.x * vectorX + this.y * vectorY;
     }
-    crossProduct(vector) {
+    crossProduct(vector: Vector | number) {
       let vectorX, vectorY;
       if (typeof vector === "number") vectorX = vectorY = vector;
       else [vectorX, vectorY] = [vector.x, vector.y];
@@ -124,11 +126,26 @@ function program() {
       return this;
     }
     display = () => rounD(this.x, 3) + ", " + rounD(this.y, 3);
-    equalTo = (vector) => this.x === vector.x && this.y === vector.y;
+    equalTo = (vector: Vector) => this.x === vector.x && this.y === vector.y;
+  }
+
+  class Params {
+    position?: Vector;
+    dir?: number;
+    shape?: Shape;
   }
 
   class Color {
-    constructor(c1, c2, c3, input1, input2) {
+    channels: Array<number>;
+    model: string | undefined;
+    cachedValue: Array<number | string>;
+    constructor(
+      c1: number,
+      c2: number,
+      c3: number,
+      input1: number | string,
+      input2?: string,
+    ) {
       let alpha, model;
       if (input1 === undefined) [alpha, model] = [255, "RGB"];
       else if (typeof input1 === "string") [alpha, model] = [255, input1];
@@ -140,7 +157,7 @@ function program() {
     }
     toRGB() {
       if (this.model === "RGB") return;
-      const [hue, sat, val] = [
+      const [hue, sat, val]: Array<number> = [
         this.channels[0],
         this.channels[1],
         this.channels[2],
@@ -156,6 +173,7 @@ function program() {
       else if (hueP < 4) [r, g, b] = [0, x, chroma];
       else if (hueP < 5) [r, g, b] = [x, 0, chroma];
       else if (hueP < 6) [r, g, b] = [chroma, 0, x];
+      else return;
 
       const m = val - chroma;
       this.channels[0] = (r + m) * 255;
@@ -174,9 +192,10 @@ function program() {
 
       let hue, sat, val;
       if (delta === 0) hue = 0;
-      if (cMax === rP) hue = (((gP - bP) / delta) % 6) * 60;
-      if (cMax === gP) hue = ((bP - rP) / delta + 2) * 60;
-      if (cMax === bP) hue = ((rP - gP) / delta + 4) * 60;
+      else if (cMax === rP) hue = (((gP - bP) / delta) % 6) * 60;
+      else if (cMax === gP) hue = ((bP - rP) / delta + 2) * 60;
+      else if (cMax === bP) hue = ((rP - gP) / delta + 4) * 60;
+      else return;
 
       sat = cMax === 0 ? 0 : delta / cMax;
       val = cMax;
@@ -199,24 +218,27 @@ function program() {
 
   let cellsChecked = 0;
   class SpatialHashGrid {
-    constructor(cellSize) {
+    grid: Map<string, any>;
+    cellSize: number;
+    queryId: number;
+    constructor(cellSize: number) {
       this.grid = new Map();
       this.cellSize = cellSize;
-      this.queryIds = 0;
+      this.queryId = 0;
     }
-    key = (x, y) => x + "," + y;
-    getCellIndex(x, y) {
+    key = (x: number, y: number) => x + "," + y;
+    getCellIndex(x: number, y: number) {
       const xIndex = floor(x / this.cellSize);
       const yIndex = floor(y / this.cellSize);
       return new Vector(xIndex, yIndex);
     }
-    newClient(client) {
+    newClient(client: Base) {
       client.indices = [];
       this.insert(client);
       this.queryId = -1;
       return client;
     }
-    insert(client) {
+    insert(client: Base) {
       const x = client.position.x + client.hitbox.aabb.center.x;
       const y = client.position.y + client.hitbox.aabb.center.y;
       const width = client.hitbox.aabb.width;
@@ -367,23 +389,36 @@ function program() {
   }
 
   class Shape {
-    constructor(params) {
-      this.color = params.color;
-      this.type = params.type || "Polygon";
-      if (this.type === "Polygon") this.vertices = params.vertices;
+    color: Color;
+    type: "Polygon" | "Circle";
+
+    vertices?: Vector[];
+    center?: Vector;
+    radius?: number;
+    constructor(
+      type: "Polygon" | "Circle",
+      color?: Color,
+      vertices?: Vector[],
+      center?: Vector,
+      radius?: number,
+    ) {
+      this.color = color ?? new Color(0, 0, 0, 0);
+      this.type = type || "Polygon";
+      if (this.type === "Polygon") this.vertices = vertices;
       else if (this.type === "Circle") {
-        this.center = params.center ?? new Vector(0, 0);
-        this.radius = params.radius;
+        this.center = center ?? new Vector(0, 0);
+        this.radius = radius;
       }
     }
-
-    draw(dx = 0, dy = 0, base) {
+    draw(dx = 0, dy = 0, base: Base) {
       if (!sameColor) fill(this.color.cachedValue);
       if (this.type === "Polygon") {
+        if (this.vertices === undefined) return;
         beginShape();
         for (const vert of this.vertices) vertex(vert.x + dx, vert.y + dy);
         endShape(CLOSE);
       } else if (this.type === "Circle") {
+        if (this.center === undefined || this.radius === undefined) return;
         ellipse(this.center.x, this.center.y, this.radius * 2, this.radius * 2);
         line(
           this.center.x,
@@ -396,12 +431,33 @@ function program() {
   }
 
   class Hitbox extends Shape {
-    constructor(shape, base, params) {
-      super(shape);
+    rotatedVertices: Vector[];
+    transformedVertices: Vector[];
+    normals: Vector[];
+    cachedNormals: Vector[];
+    cachedDir: number;
+    trianglesIndices: number[];
+    aabb: Object;
+
+    rho: number;
+    centroid: Vector;
+    area: number;
+    mass: number;
+    momentOfInertia: number;
+
+    lastUpdate: string;
+    constructor(shape: Shape, base: Base, rho?: number) {
+      super(
+        shape.type,
+        shape.color,
+        shape.vertices,
+        shape.center,
+        shape.radius,
+      );
       this.rotatedVertices = [];
       this.transformedVertices = [];
       this.normals = [];
-      this.cachedDir = null;
+      this.cachedDir = base.dir;
       this.lastUpdate = "None";
       this.aabb = {};
       this.cachedNormals = [];
@@ -410,20 +466,26 @@ function program() {
       this.shallowUpdate(base);
       this.trianglesIndices = this.getTriangleIndices();
 
-      this.rho = params.rho ?? 1;
+      this.rho = rho ?? 1;
+      this.centroid = this.getCentroid();
       this.area = this.getArea();
       this.mass = this.rho * this.area;
       this.momentOfInertia = this.getMomentOfInertia();
     }
-    getCentroid(vertices) {
+    getCentroid(vertices?: Vector[]) {
       vertices = vertices ?? this.vertices;
+      if (vertices === undefined) return new Vector(0, 0);
       return vertices
         .reduce((sum, vertex) => sum.add(vertex), new Vector(0, 0))
         .divide(vertices.length);
     }
-    getArea(vertices) {
+    getArea(vertices?: Vector[]): number {
       vertices = vertices ?? this.vertices;
-      if (this.type === "Circle") return PI * sq(this.radius);
+      if (this.type === "Circle") {
+        if (this.radius === undefined) return -1;
+        return PI * sq(this.radius);
+      }
+      if (vertices === undefined) return -1;
       // something something shoelaces
       return (
         abs(
@@ -434,9 +496,12 @@ function program() {
         ) / 2
       );
     }
-    getMomentOfInertia(vertices) {
-      if (this.type === "Circle")
+    getMomentOfInertia(vertices?: Vector[]): number {
+      if (this.type === "Circle") {
+        if (this.radius === undefined) return -1;
         return 0.5 * this.getArea() * this.rho * sq(this.radius);
+      }
+      if (this.vertices === undefined) return -1;
 
       vertices = vertices ?? this.vertices;
       const area = this.area ?? Hitbox.prototype.getArea(vertices);
@@ -479,8 +544,8 @@ function program() {
         return sum + momentOfInertia + mass * radiusSquared;
       }, 0);
     }
-    getTriangleIndices(vertices) {
-      if (this.type === "Circle") return;
+    getTriangleIndices(vertices: Vector[]): number[] {
+      if (this.type === "Circle") return [];
       vertices = vertices ?? this.vertices;
       let trianglesIndices = [];
       let vertexIndices = vertices.map((_, index) => index);
@@ -720,16 +785,35 @@ function program() {
 
   // temp
   class Base {
-    constructor(params) {
+    id: number;
+    indices: Array<Vector> | null;
+    ticks: number;
+
+    position: Vector;
+    dir: number;
+    velocity: Vector;
+    omega: number;
+
+    shape: Shape;
+    trueColor: Color;
+
+    hitbox: Hitbox;
+    axesBuffer: Array<Vector>;
+    constructor(
+      position: Vector,
+      shape: Shape,
+      velocity?: Vector,
+      dir?: number,
+      rho?: number,
+    ) {
       this.id = newid();
-      this.x = params.x || 0;
-      this.y = params.y || 0;
-      this.position = params.position ?? new Vector(0, 0);
-      this.dir = params.dir || 0;
-      this.shape = params.shape || 0;
+      this.indices = null;
+      this.position = position ?? new Vector(0, 0);
+      this.dir = dir ?? 0;
+      this.shape = shape;
       this.trueColor = new Color(random(-15, 40), 0.6, 1, "HSV");
 
-      this.hitbox = new Hitbox(params.shape, this, params);
+      this.hitbox = new Hitbox(shape, this, rho);
       this.axesBuffer = [];
       if (initialVelocity) {
         this.velocity = new Vector(
@@ -742,7 +826,7 @@ function program() {
         this.velocity = new Vector(0, 0);
         this.omega = 0;
       }
-      this.velocity = params.velocity ?? this.velocity;
+      this.velocity = velocity ?? new Vector(0, 0);
       this.ticks = floor(random(0, 50));
     }
     getInput() {
