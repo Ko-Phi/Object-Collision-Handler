@@ -121,6 +121,11 @@ function program() {
   const rounD = (num, deciPlace) => round(num * pow(10, deciPlace)) / pow(10, deciPlace);
   const ehhItsCloseEnoughMan = (numA, numB) => abs(numA - numB) < epsilon;
 
+  Array.prototype.getItem = function (index) {
+    if (index >= this.length) return this[index % this.length];
+    else if (index < 0) return this[(index % this.length) + this.length];
+    else return this[index];
+  };
   function getItem(array, index) {
     if (index >= array.length) return array[index % array.length];
     else if (index < 0) return array[(index % array.length) + array.length];
@@ -689,7 +694,7 @@ function program() {
       let min, max;
       if (this.type === "Circle") {
         const center = this.center.copy().add(base.position);
-        const projection = axis.x * center.x + axis.y * center.y;
+        const projection = axis.dotProduct(center);
         const radiusProjection = this.radius * axis.getMag();
         min = projection - radiusProjection;
         max = projection + radiusProjection;
@@ -716,9 +721,9 @@ function program() {
         // get closest point on side
         const sideAB = vertexB.copy().subtract(vertexA);
         const sideACenter = center.copy().subtract(vertexA);
-        let projection = (sideACenter.x * sideAB.x + sideACenter.y * sideAB.y) / sideAB.getSqMag();
-
+        let projection = sideACenter.dotProduct(sideAB) / sideAB.getSqMag();
         projection = constrain(projection, 0, 1);
+
         const point = vertexA.copy().add(sideAB.copy().multiply(projection));
         const difference = point.copy().subtract(center);
         const distanceSquared = difference.getSqMag();
@@ -890,18 +895,66 @@ function program() {
     handleCollision(data) {
       if (!data.colliding) return;
       const axis = data.axis;
+      const tangent = axis.copy().perpendicular();
       const MTV = data.axis.copy().multiply(data.overlap);
       const baseB = data.baseB;
       const baseA = data.baseA;
-      const displacement = MTV.copy().multiply(0.5 + epsilon);
+      const bases = [baseA, baseB];
 
+      const displacement = MTV.copy().multiply(0.5 + epsilon);
       baseA.position = baseA.position.copy().subtract(displacement);
       baseB.position.add(displacement);
+      // get contact points
+      let contactPoints = [];
+      if (baseA.hitbox.type === baseB.hitbox.type && baseA.hitbox.type === "Polygon") {
+        /* A is the checked vertex. BC is the current edge of the other base. P is the closest point
+              /B
+             / |
+            /  |
+           A---P
+            \  |
+             \ |
+              \C
+        */
+        // base loop
+        bases.forEach((base, index, bases) => {
+          const otherBase = bases.getItem(index + 1);
+          const vertices = base.hitbox.transformedVertices;
+          const otherVertices = otherBase.hitbox.transformedVertices;
+          // vertex loop
+          vertices.forEach((vertexA) => {
+            // side loop
+            otherVertices.forEach((vertexB, index, bVertices) => {
+              const vertexC = bVertices.getItem(index + 1);
+              const sideBC = vertexC.copy().subtract(vertexB);
+              const sideBA = vertexA.copy().subtract(vertexB);
+
+              let projection = sideBA.dotProduct(sideBC) / sideBC.getSqMag();
+              projection = constrain(projection, 0, 1);
+
+              const point = vertexB.copy().add(sideBC.copy().multiply(projection));
+              const sideAP = point.copy().subtract(vertexA);
+              const distanceSquared = sideAP.getSqMag();
+              if (distanceSquared < 1 && contactPoints.length < 2) {
+                if (contactPoints.length === 1) {
+                  if (contactPoints[0].copy().subtract(point).getSqMag() > 0.01) contactPoints.push(point);
+                } else contactPoints.push(point);
+              }
+            });
+          });
+        });
+      }
+      console.log(contactPoints.length);
+      for (const point of contactPoints) {
+        pushMatrix();
+        translate(canvasHalfWidth, canvasHalfHeight);
+        ellipse(point.x, point.y, 5, 5);
+        popMatrix();
+      }
 
       if (!collisionImpulse) return;
 
       if (axis.getMag() > 1.1) println("Non normalized axis");
-      const tangent = axis.copy().perpendicular();
       // get components of each object's velocity (scalar quantities)
       // only velocity parallel to collision axis affected by collision
       const pVelocityA = baseA.velocity.dotProduct(axis);
@@ -954,7 +1007,8 @@ function program() {
     new Base({
       position: new Vector(100, 0),
       dir: 0,
-      shape: newCircle(new Vector(0, 0), 35, new Color(255, 0, 0))
+      shape: newPolygon(regularPolyVerts(0, 0, 35, 5), new Color(255, 0, 0))
+      //shape: newCircle(new Vector(0, 0), 35, new Color(255, 0, 0))
     })
   );
 
@@ -1065,8 +1119,8 @@ function program() {
 
     if (keys[32] & (ticksSinceInput >= 30)) {
       focus = (focus + 1) % boxes.length;
-      for (const box of boxes)
-        box.velocity.add(new Vector(random(0, 2 * PI), velocityMagnitude * random(0.75, 1.25), "dirMag"));
+      //for (const box of boxes)
+      // box.velocity.add(new Vector(random(0, 2 * PI), velocityMagnitude * random(0.75, 1.25), "dirMag"));
       ticksSinceInput = 0;
     }
     for (const box of boxes) {
@@ -1126,11 +1180,6 @@ function program() {
       Perf.updateMetric("satCheck");
     }
 
-    // handle collisions
-    for (const collision of collisions) collision.baseA.handleCollision(collision);
-
-    Perf.updateMetric("handleCollisions");
-
     // draw them boxes
     for (const box of boxes) {
       stroke(46);
@@ -1154,6 +1203,10 @@ function program() {
       );
     }
     Perf.updateMetric("drawBoxes");
+
+    // handle collisions
+    for (const collision of collisions) collision.baseA.handleCollision(collision);
+    Perf.updateMetric("handleCollisions");
 
     Perf.getTotal();
 
