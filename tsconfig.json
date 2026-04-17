@@ -1,0 +1,6 @@
+{
+  "compilerOptions": {
+    "strict": true
+  },
+  "files": ["test.ts", "globals.d.ts"]
+}
