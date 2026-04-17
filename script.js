@@ -21,7 +21,7 @@ function program() {
   // Box Count
   const insertCount = 70;
   const scale = 32;
-  const scaleVariance = 0.1;
+  const scaleVariance = 0;
   // const moreBoxes = true; // replaces the usual two boxes with 5
   // const veryMoreBoxes = true; // a lot of boxes
   // const considerablyLargeAmountOfBoxesToInsert = true; // way too many boxes
