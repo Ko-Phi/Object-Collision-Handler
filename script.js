@@ -21,7 +21,7 @@ function program() {
   // Box Count
   const insertCount = 50;
   const scale = 32;
-  const scaleVariance = 0.3;
+  const scaleVariance = 0.1;
   // const moreBoxes = true; // replaces the usual two boxes with 5
   // const veryMoreBoxes = true; // a lot of boxes
   // const considerablyLargeAmountOfBoxesToInsert = true; // way too many boxes
@@ -736,7 +736,7 @@ function program() {
           velocityMagnitude * random(0.75, 1.25),
           "dirMag",
         );
-        this.omega = random(-0.5, 0.5);
+        this.omega = random(-0.25, 0.25);
       } else {
         this.velocity = new Vector(0, 0);
         this.omega = 0;
@@ -1016,7 +1016,7 @@ function program() {
 
   let boxes = [];
   for (let i = 0; i < insertCount; i++) {
-    const shape =
+    let shape =
       (ceil(random(0, 5)) > 3 && !allCircles) || allPolys
         ? newPolygon(
             regularPolyVerts(
@@ -1032,6 +1032,24 @@ function program() {
             ceil(scale * random(0.9, 1.1)),
             new Color(255, 0, 0),
           );
+    if (random(0, 5) > 4) {
+      let hWidth =
+        scale * random(1 - scaleVariance, 1 + scaleVariance) * random(2, 4);
+      let hHeight = scale * random(1 - scaleVariance, 1 + scaleVariance) * 0.5;
+      shape = newPolygon(
+        polyVerts(
+          -hWidth,
+          -hHeight,
+          hWidth,
+          -hHeight,
+          hWidth,
+          hHeight,
+          -hWidth,
+          hHeight,
+        ),
+        new Color(255, 0, 0),
+      );
+    }
     boxes.push(
       new Base({
         position: new Vector(
