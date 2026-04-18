@@ -19,7 +19,7 @@ function program() {
   const gridSize = 50; // influences hashgrid check. Can queak for minor performance improvement
 
   // Box Count
-  const insertCount = 70;
+  const insertCount = 50;
   const scale = 32;
   const scaleVariance = 0;
   // const moreBoxes = true; // replaces the usual two boxes with 5
@@ -744,8 +744,14 @@ function program() {
       const input_x = (keys[RIGHT] || keys[68]) - (keys[LEFT] || keys[65]);
       const input_y = (keys[DOWN] || keys[83]) - (keys[UP] || keys[87]);
       const input_dir = keys[69] - keys[81];
-      if (this.velocity.getMag() < 3)
-        this.velocity.add(new Vector(input_x, input_y).normalize().divide(5));
+      const translation = new Vector(input_x, input_y).normalize();
+
+      /*
+      this.position.add(translation);
+      this.dir += input_dir / 20;
+
+      */
+      if (this.velocity.getMag() < 3) this.velocity.add(translation.divide(5));
       else this.velocity.normalize().multiply(2.9);
       if (abs(this.omega) < 0.1) this.omega += input_dir / 100;
       else this.omega = Math.sign(this.omega) * 0.09;
@@ -917,8 +923,7 @@ function program() {
       baseA.position.subtract(displacementA);
       baseB.position.add(displacementB);
       // get contact points
-      let contactPoint = null;
-      let minDistanceSquared = Infinity;
+      let contactPoints = [];
       const collisionType = baseA.hitbox.type + "-" + baseB.hitbox.type;
       if (collisionType === "Polygon-Polygon") {
         /* Visualization:
@@ -953,12 +958,17 @@ function program() {
                 .add(sideBC.copy().multiply(projection));
               const sideAP = point.copy().subtract(vertexA);
               const distanceSquared = sideAP.getSqMag();
-              if (distanceSquared < minDistanceSquared) {
-                contactPoint = point;
+              if (distanceSquared < 1 && contactPoints.length < 2) {
+                if (contactPoints.length === 1) {
+                  if (contactPoints[0].copy().subtract(point).getSqMag() > 0.01)
+                    contactPoints.push(point);
+                } else contactPoints.push(point);
               }
             });
           });
         });
+        if (contactPoints.length === 0)
+          contactPoints.push(baseA.hitbox.closestPointToCenterOf(baseB));
       } else if (
         collisionType === "Polygon-Circle" ||
         collisionType === "Circle-Polygon"
@@ -967,48 +977,56 @@ function program() {
         if (baseA.hitbox.type === "Circle")
           [circleBase, otherBase] = [baseA, baseB];
         else [circleBase, otherBase] = [baseB, baseA];
-        contactPoint = otherBase.hitbox.closestPointToCenterOf(circleBase);
+        contactPoints.push(otherBase.hitbox.closestPointToCenterOf(circleBase));
       } else if (collisionType === "Circle-Circle") {
         const centerAToCenterB = baseB.position
           .copy()
           .subtract(baseA.position)
           .normalize();
-        contactPoint = baseA.position
-          .copy()
-          .add(centerAToCenterB.copy().multiply(baseA.hitbox.radius));
+        contactPoints.push(
+          baseA.position
+            .copy()
+            .add(centerAToCenterB.copy().multiply(baseA.hitbox.radius)),
+        );
       }
 
+      for (const point of contactPoints) {
+        pushMatrix();
+        translate(canvasHalfWidth + point.x, canvasHalfHeight + point.y);
+        ellipse(0, 0, 5, 5);
+        popMatrix();
+      }
       if (!collisionImpulse) return;
 
-      if (axis.getMag() > 1.1) println("Non normalized axis");
-
-      const vectorAC = contactPoint.copy().subtract(baseA.position);
-      const vectorBC = contactPoint.copy().subtract(baseB.position);
-      const contactVelocityA = baseA.velocity
-        .copy()
-        .add(new Vector(baseA.omega * -vectorAC.y, baseA.omega * vectorAC.x));
-      const contactVelocityB = baseB.velocity
-        .copy()
-        .add(new Vector(baseB.omega * -vectorBC.y, baseB.omega * vectorBC.x));
-
-      const velocityAB = contactVelocityB.copy().subtract(contactVelocityA);
-
-      const inertiaA = baseA.hitbox.momentOfInertia;
-      const inertiaB = baseB.hitbox.momentOfInertia;
-      const impulseScalar =
-        velocityAB
+      for (const contactPoint of contactPoints) {
+        const vectorAC = contactPoint.copy().subtract(baseA.position);
+        const vectorBC = contactPoint.copy().subtract(baseB.position);
+        const contactVelocityA = baseA.velocity
           .copy()
-          .multiply(-1 - restitution)
-          .dotProduct(axis) /
-        (axis.dotProduct(axis.copy().multiply(1 / massA + 1 / massB)) +
-          sq(vectorAC.crossProduct(axis)) / inertiaA +
-          sq(vectorBC.crossProduct(axis)) / inertiaB);
+          .add(vectorAC.copy().perpendicular().multiply(baseA.omega));
+        const contactVelocityB = baseB.velocity
+          .copy()
+          .add(vectorBC.copy().perpendicular().multiply(baseB.omega));
 
-      baseA.velocity.subtract(axis.copy().multiply(impulseScalar / massA));
-      baseA.omega += (vectorAC.crossProduct(axis) * impulseScalar) / inertiaA;
+        const velocityAB = contactVelocityB.copy().subtract(contactVelocityA);
 
-      baseB.velocity.add(axis.copy().multiply(impulseScalar / massB));
-      baseB.omega -= (vectorBC.crossProduct(axis) * impulseScalar) / inertiaB;
+        const inertiaA = baseA.hitbox.momentOfInertia;
+        const inertiaB = baseB.hitbox.momentOfInertia;
+        const impulseScalar =
+          velocityAB
+            .copy()
+            .multiply(-1 - restitution)
+            .dotProduct(axis) /
+          (axis.dotProduct(axis.copy().multiply(1 / massA + 1 / massB)) +
+            sq(vectorAC.crossProduct(axis)) / inertiaA +
+            sq(vectorBC.crossProduct(axis)) / inertiaB);
+
+        baseA.velocity.subtract(axis.copy().multiply(impulseScalar / massA));
+        baseA.omega += (vectorAC.crossProduct(axis) * impulseScalar) / inertiaA;
+
+        baseB.velocity.add(axis.copy().multiply(impulseScalar / massB));
+        baseB.omega -= (vectorBC.crossProduct(axis) * impulseScalar) / inertiaB;
+      }
     }
   }
 
