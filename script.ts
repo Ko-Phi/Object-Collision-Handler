@@ -226,8 +226,8 @@ function program() {
       return client;
     }
     insert(client: Base) {
-      const x = client.position.x + client.hitbox.aabb.center.x;
-      const y = client.position.y + client.hitbox.aabb.center.y;
+      const x = client.position.x + client.hitbox.aabb.centroid.x;
+      const y = client.position.y + client.hitbox.aabb.centroid.y;
       const width = client.hitbox.aabb.width;
       const height = client.hitbox.aabb.width;
 
@@ -299,8 +299,8 @@ function program() {
       }
     }
     update(client: Base) {
-      const x = client.position.x + client.hitbox.aabb.center.x;
-      const y = client.position.y + client.hitbox.aabb.center.y;
+      const x = client.position.x + client.hitbox.aabb.centroid.x;
+      const y = client.position.y + client.hitbox.aabb.centroid.y;
       const width = client.hitbox.aabb.width;
       const height = client.hitbox.aabb.width;
 
@@ -399,7 +399,7 @@ function program() {
           .divide(this.vertices.length);
         this.radius = sqrt(maxSqRadius);
       } else if (this.type === "Circle") {
-        if (radius === undefined) throw new Error("Circles require a center");
+        if (radius === undefined) throw new Error("Circles require a centroid");
         this.centroid = centroid ?? new Vector(0, 0);
         this.radius = radius;
         this.vertices = [this.centroid];
@@ -432,11 +432,11 @@ function program() {
   class Aabb {
     width: number;
     height: number;
-    center: Vector;
-    constructor(width: number, height: number, center: Vector) {
+    centroid: Vector;
+    constructor(width: number, height: number, centroid: Vector) {
       this.width = width;
       this.height = height;
-      this.center = center;
+      this.centroid = centroid;
     }
   }
 
@@ -578,12 +578,12 @@ function program() {
 
         let centroid = this.centroid;
         let cachedCentroid = this.cachedCentroid;
-        // recalc center
+        // recalc centroid
         centroid.x = cachedCentroid.x * cosT - cachedCentroid.y * sinT;
         centroid.y = cachedCentroid.x * sinT + cachedCentroid.y * cosT;
       }
       if (!displayAABB) return;
-      // display AABB (note aabb center points to base center)
+      // display AABB (note aabb centroid points to base centroid)
       const aabbWidth = this.aabb.width;
       const aabbHeight = this.aabb.height;
 
@@ -624,8 +624,8 @@ function program() {
     project(axis: Vector, base: Base): { min: number; max: number } {
       let min, max;
       if (this.type === "Circle") {
-        const center = this.centroid.copy().add(base.position);
-        const projection = axis.dotProduct(center);
+        const centroid = this.centroid.copy().add(base.position);
+        const projection = axis.dotProduct(centroid);
         const radiusProjection = this.radius * axis.getMag();
         min = projection - radiusProjection;
         max = projection + radiusProjection;
@@ -958,14 +958,14 @@ function program() {
           otherBase.hitbox.closestPointToCentroidOf(circleBase),
         );
       } else if (collisionType === "Circle-Circle") {
-        const centerAToCenterB = baseB.position
+        const centroidAToCentroidB = baseB.position
           .copy()
           .subtract(baseA.position)
           .normalize();
         contactPoints.push(
           baseA.position
             .copy()
-            .add(centerAToCenterB.copy().multiply(baseA.hitbox.radius)),
+            .add(centroidAToCentroidB.copy().multiply(baseA.hitbox.radius)),
         );
       }
 
@@ -1224,7 +1224,7 @@ function program() {
       const aabb = box.hitbox.aabb;
       Perf.getTime();
       const clients = world.queryGrid(
-        box.position.copy().add(aabb.center),
+        box.position.copy().add(aabb.centroid),
         aabb.width,
         aabb.height,
       );
