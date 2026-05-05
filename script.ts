@@ -6,7 +6,7 @@ function program() {
   const canvasHalfHeight = height / 2;
 
   // Simulation Options
-  const initialVelocity = true; // objects begin with an intial velocity
+  const initialVelocity = false; // objects begin with an intial velocity
   const periodicVelocityShifts = false; // velocity randomized periodically
   const velocityMagnitude = 5; // alters the magnitude of said velocity
 
@@ -19,7 +19,7 @@ function program() {
   const gridSize = 50; // influences hashgrid check. Can queak for minor performance improvement
 
   // Box Count
-  const insertCount: number = 50;
+  const insertCount: number = 0;
   const scale = 32;
   const scaleVariance = 0;
   // const moreBoxes = true; // replaces the usual two boxes with 5
@@ -55,8 +55,7 @@ function program() {
     y: number;
     constructor(input1: number, input2: number, init?: string) {
       let [x, y] = [input1, input2];
-      if (init === "dirMag")
-        [x, y] = [input2 * Math.cos(input1), input2 * Math.sin(input1)];
+      if (init === "dirMag") [x, y] = [input2 * Math.cos(input1), input2 * Math.sin(input1)];
       [this.x, this.y] = [x, y];
     }
     copy = () => new Vector(this.x, this.y);
@@ -116,6 +115,13 @@ function program() {
       [this.x, this.y] = [-this.y, this.x];
       return this;
     }
+    rotate(dir: number) {
+      const cosT = Math.cos(dir);
+      const sinT = Math.sin(dir);
+      [this.x, this.y] = [this.x * cosT - this.y * sinT, this.x * sinT + this.y * cosT];
+      return this;
+    }
+
     display = () => rounD(this.x, 3) + ", " + rounD(this.y, 3);
     equalTo = (vector: Vector) => this.x === vector.x && this.y === vector.y;
   }
@@ -124,13 +130,7 @@ function program() {
     channels: number[];
     model: string;
     cachedValue: any;
-    constructor(
-      c1: number,
-      c2: number,
-      c3: number,
-      input1?: number | string,
-      input2?: string,
-    ) {
+    constructor(c1: number, c2: number, c3: number, input1?: number | string, input2?: string) {
       let alpha, model;
       if (input1 === undefined) [alpha, model] = [255, "RGB"];
       else if (typeof input1 === "string") [alpha, model] = [255, input1];
@@ -142,11 +142,7 @@ function program() {
     }
     toRGB() {
       if (this.model === "RGB") return;
-      const [hue, sat, val] = [
-        this.channels[0],
-        this.channels[1],
-        this.channels[2],
-      ];
+      const [hue, sat, val] = [this.channels[0], this.channels[1], this.channels[2]];
       const hueP = hue / 60;
       const chroma = val * sat;
       const x = chroma * (1 - abs((hueP % 2) - 1));
@@ -192,12 +188,7 @@ function program() {
     }
     value() {
       if (this.model === "HSV") this.toRGB();
-      return color(
-        this.channels[0],
-        this.channels[1],
-        this.channels[2],
-        this.channels[3],
-      );
+      return color(this.channels[0], this.channels[1], this.channels[2], this.channels[3]);
     }
   }
 
@@ -272,13 +263,7 @@ function program() {
               clients.push(client);
             }
           }
-          if (displayGridCheck)
-            rect(
-              x * this.cellSize,
-              y * this.cellSize,
-              this.cellSize,
-              this.cellSize,
-            );
+          if (displayGridCheck) rect(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize);
           cellsChecked++;
         }
       }
@@ -308,10 +293,7 @@ function program() {
       const index1 = this.getCellIndex(x - width / 2, y - height / 2);
       const index2 = this.getCellIndex(x + width / 2, y + height / 2);
       // check for change in grid position
-      if (
-        !index1.equalTo(client.indices[0]) ||
-        !index2.equalTo(client.indices[1])
-      ) {
+      if (!index1.equalTo(client.indices[0]) || !index2.equalTo(client.indices[1])) {
         this.remove(client);
         this.insert(client);
       }
@@ -320,17 +302,9 @@ function program() {
       stroke(204);
       pushMatrix();
       translate(canvasHalfWidth, canvasHalfHeight);
-      for (
-        let x = ceil(-width / this.cellSize) * this.cellSize;
-        x <= canvasHalfWidth;
-        x += this.cellSize
-      )
+      for (let x = ceil(-width / this.cellSize) * this.cellSize; x <= canvasHalfWidth; x += this.cellSize)
         line(x, height, x, -height);
-      for (
-        let y = ceil(-height / this.cellSize) * this.cellSize;
-        y <= canvasHalfHeight;
-        y += this.cellSize
-      )
+      for (let y = ceil(-height / this.cellSize) * this.cellSize; y <= canvasHalfHeight; y += this.cellSize)
         line(width, y, -width, y);
       popMatrix();
     }
@@ -338,26 +312,20 @@ function program() {
 
   const world = new SpatialHashGrid(gridSize);
 
-  function regularPolyVerts(
-    x: number,
-    y: number,
-    radius: number,
-    sideCount: number,
-  ) {
+  function regularPolyVerts(x: number, y: number, radius: number, sideCount: number) {
     const vertices = [];
     for (let i = 0; i < sideCount; i++)
       vertices.push(
         new Vector(
           x + radius * Math.cos((2 * PI * i) / sideCount),
-          y + radius * Math.sin((2 * PI * i) / sideCount),
-        ),
+          y + radius * Math.sin((2 * PI * i) / sideCount)
+        )
       );
     return vertices;
   }
   function polyVerts(...inputs: number[]): Vector[] {
     let vertices = [];
-    for (let i = 0; i < inputs.length; i += 2)
-      vertices.push(new Vector(inputs[i], inputs[i + 1]));
+    for (let i = 0; i < inputs.length; i += 2) vertices.push(new Vector(inputs[i], inputs[i + 1]));
     return vertices;
   }
 
@@ -379,13 +347,12 @@ function program() {
       color?: Color,
       vertices?: Vector[],
       centroid?: Vector,
-      radius?: number,
+      radius?: number
     ) {
       this.color = color ?? new Color(0, 0, 0, 0);
       this.type = type;
       if (this.type === "Polygon") {
-        if (vertices === undefined)
-          throw new Error("Polygons require vertices");
+        if (vertices === undefined) throw new Error("Polygons require vertices");
         this.vertices = vertices;
         let maxSqRadius = -Infinity;
         this.centroid = this.vertices
@@ -394,7 +361,7 @@ function program() {
               maxSqRadius = max(vertex.getSqMag(), maxSqRadius);
               return sum.add(vertex);
             },
-            new Vector(0, 0),
+            new Vector(0, 0)
           )
           .divide(this.vertices.length);
         this.radius = sqrt(maxSqRadius);
@@ -413,18 +380,8 @@ function program() {
         for (const vert of this.vertices) vertex(vert.x + dx, vert.y + dy);
         endShape(CLOSE);
       } else if (this.type === "Circle") {
-        ellipse(
-          this.centroid.x,
-          this.centroid.y,
-          this.radius * 2,
-          this.radius * 2,
-        );
-        line(
-          this.centroid.x,
-          this.centroid.y,
-          this.radius * cos(base.dir),
-          this.radius * sin(base.dir),
-        );
+        ellipse(this.centroid.x, this.centroid.y, this.radius * 2, this.radius * 2);
+        line(this.centroid.x, this.centroid.y, this.radius * cos(base.dir), this.radius * sin(base.dir));
       }
     }
   }
@@ -457,13 +414,7 @@ function program() {
     cachedNormals: Vector[];
     cachedCentroid: Vector;
     constructor(shape: Shape, base: Base, rho?: number) {
-      super(
-        shape.type,
-        shape.color,
-        shape.vertices,
-        shape.centroid,
-        shape.radius,
-      );
+      super(shape.type, shape.color, shape.vertices, shape.centroid, shape.radius);
       this.rotatedVertices = [];
       this.transformedVertices = [];
       this.normals = [];
@@ -491,8 +442,7 @@ function program() {
         console.log(this.area, this.windingOrder);
 
         let loopedVertices = this.vertices;
-        if (this.windingOrder === "CW")
-          loopedVertices = this.vertices.slice().reverse();
+        if (this.windingOrder === "CW") loopedVertices = this.vertices.slice().reverse();
 
         let inertiaOrigin = 0;
         this.centroid = new Vector(0, 0);
@@ -506,21 +456,17 @@ function program() {
 
           this.centroid.add(vertex.copy().add(nextVertex).multiply(subArea));
           inertiaOrigin +=
-            subArea *
-            (vertex.getSqMag() +
-              vertex.dotProduct(nextVertex) +
-              nextVertex.getSqMag());
+            subArea * (vertex.getSqMag() + vertex.dotProduct(nextVertex) + nextVertex.getSqMag());
 
           this.rotatedVertices[index] = new Vector(
             vertex.x * cosT - vertex.y * sinT,
-            vertex.x * sinT + vertex.y * cosT,
+            vertex.x * sinT + vertex.y * cosT
           );
         });
         this.mass = this.area * this.rho;
         this.cachedCentroid = this.centroid.copy();
         inertiaOrigin *= this.rho / 12;
-        this.momentOfInertia =
-          inertiaOrigin - this.mass * this.centroid.getSqMag();
+        this.momentOfInertia = inertiaOrigin - this.mass * this.centroid.getSqMag();
 
         let maxSqRadius = -Infinity;
         this.vertices.forEach((vertex, index, vertices) => {
@@ -529,10 +475,7 @@ function program() {
           let normal = edge.copy().perpendicular().normalize();
 
           const direction = this.cachedCentroid.copy().subtract(normal);
-          maxSqRadius = max(
-            vertex.copy().subtract(this.cachedCentroid).getSqMag(),
-            maxSqRadius,
-          );
+          maxSqRadius = max(vertex.copy().subtract(this.cachedCentroid).getSqMag(), maxSqRadius);
           if (normal.dotProduct(direction) < 0) normal.multiply(-1);
           this.cachedNormals[index] = normal.normalize();
           this.normals[index] = this.cachedNormals[index].copy();
@@ -546,9 +489,7 @@ function program() {
     }
     getCentroid(vertices?: Vector[]) {
       vertices = vertices ?? this.vertices;
-      return vertices
-        .reduce((sum, vertex) => sum.add(vertex), new Vector(0, 0))
-        .divide(vertices.length);
+      return vertices.reduce((sum, vertex) => sum.add(vertex), new Vector(0, 0)).divide(vertices.length);
     }
     getArea(vertices?: Vector[]) {
       vertices = vertices ?? this.vertices;
@@ -559,7 +500,7 @@ function program() {
           vertices.reduce((area, vertex, index, vertices) => {
             const nextVertex = vertices[(index + 1) % vertices.length];
             return area + vertex.crossProduct(nextVertex);
-          }, 0),
+          }, 0)
         ) / 2
       );
     }
@@ -567,20 +508,8 @@ function program() {
       this.lastUpdate = "AABB";
 
       // check if rotation recalc neccessary
-      if (
-        base.dir !== this.cachedDir &&
-        this.cachedCentroid.x + this.cachedCentroid.y !== 0
-      ) {
-        const dir = base.dir;
-        this.cachedDir = dir;
-        const cosT = Math.cos(dir);
-        const sinT = Math.sin(dir);
-
-        let centroid = this.centroid;
-        let cachedCentroid = this.cachedCentroid;
-        // recalc centroid
-        centroid.x = cachedCentroid.x * cosT - cachedCentroid.y * sinT;
-        centroid.y = cachedCentroid.x * sinT + cachedCentroid.y * cosT;
+      if (base.dir !== this.cachedDir && this.cachedCentroid.x + this.cachedCentroid.y !== 0) {
+        this.centroid.rotate(base.dir);
       }
       if (!displayAABB) return;
       // display AABB (note aabb centroid points to base centroid)
@@ -592,7 +521,7 @@ function program() {
       pushMatrix();
       translate(
         this.centroid.x + base.position.x + canvasHalfWidth,
-        this.centroid.y + base.position.y + canvasHalfHeight,
+        this.centroid.y + base.position.y + canvasHalfHeight
       );
       rect(-aabbWidth / 2, -aabbHeight / 2, aabbWidth, aabbHeight);
       ellipse(0, 0, this.radius * 2, this.radius * 2);
@@ -601,70 +530,43 @@ function program() {
       if (this.type === "Circle" || this.lastUpdate !== "AABB") return;
       this.lastUpdate = "SAT";
 
-      const position = base.position;
-      const dir = base.dir;
-      const cosT = Math.cos(dir);
-      const sinT = Math.sin(dir);
-      // recalc transformed vertices and normals
-      for (let i = 0; i < this.vertices.length; i++) {
-        const vertex = this.vertices[i];
-        const rotatedVertex = this.rotatedVertices[i];
-
-        rotatedVertex.x = vertex.x * cosT - vertex.y * sinT;
-        rotatedVertex.y = vertex.x * sinT + vertex.y * cosT;
-
-        this.transformedVertices[i] = rotatedVertex.copy().add(position);
-
-        this.normals[i].x =
-          this.cachedNormals[i].x * cosT - this.cachedNormals[i].y * sinT;
-        this.normals[i].y =
-          this.cachedNormals[i].x * sinT + this.cachedNormals[i].y * cosT;
-      }
+      this.transformedVertices = this.vertices.map((vertex) =>
+        vertex.copy().rotate(base.dir).add(base.position)
+      );
+      this.normals = this.cachedNormals.map((cachedNormal) => cachedNormal.copy().rotate(base.dir));
     }
     project(axis: Vector, base: Base): { min: number; max: number } {
-      let min, max;
       if (this.type === "Circle") {
         const centroid = this.centroid.copy().add(base.position);
         const projection = axis.dotProduct(centroid);
-        const radiusProjection = this.radius * axis.getMag();
-        min = projection - radiusProjection;
-        max = projection + radiusProjection;
+        return { min: projection - this.radius, max: projection + this.radius };
       } else {
-        max = min =
-          axis.x * this.transformedVertices[0].x +
-          axis.y * this.transformedVertices[0].y;
-        for (const vert of this.transformedVertices) {
-          const projection = axis.x * vert.x + axis.y * vert.y;
-          if (projection < min) min = projection;
-          else if (projection > max) max = projection;
-        }
+        const projections = this.transformedVertices.map((vertex) => vertex.dotProduct(axis));
+        return { min: Math.min(...projections), max: Math.max(...projections) };
       }
-      return { min: min, max: max };
     }
     closestPointToCentroidOf(base: Base): Vector {
       let closestPoint = new Vector(0, 0);
       let minDistanceSquared = Infinity;
       const centroid = base.position.copy().add(base.hitbox.centroid);
       // loop over this object's edges
-      this.transformedVertices.forEach(
-        (vertexA: Vector, index: number, vertices: Vector[]) => {
-          const vertexB = vertices[(index + 1) % vertices.length];
+      this.transformedVertices.forEach((vertexA: Vector, index: number, vertices: Vector[]) => {
+        const vertexB = vertices[(index + 1) % vertices.length];
 
-          // get closest point on side
-          const sideAB = vertexB.copy().subtract(vertexA);
-          const sideACentroid = centroid.copy().subtract(vertexA);
-          let projection = sideACentroid.dotProduct(sideAB) / sideAB.getSqMag();
-          projection = constrain(projection, 0, 1);
+        // get closest point on side
+        const sideAB = vertexB.copy().subtract(vertexA);
+        const sideACentroid = centroid.copy().subtract(vertexA);
+        let projection = sideACentroid.dotProduct(sideAB) / sideAB.getSqMag();
+        projection = constrain(projection, 0, 1);
 
-          const point = vertexA.copy().add(sideAB.copy().multiply(projection));
-          const difference = point.copy().subtract(centroid);
-          const distanceSquared = difference.getSqMag();
-          if (distanceSquared < minDistanceSquared) {
-            minDistanceSquared = distanceSquared;
-            closestPoint = point;
-          }
-        },
-      );
+        const point = vertexA.copy().add(sideAB.copy().multiply(projection));
+        const difference = point.copy().subtract(centroid);
+        const distanceSquared = difference.getSqMag();
+        if (distanceSquared < minDistanceSquared) {
+          minDistanceSquared = distanceSquared;
+          closestPoint = point;
+        }
+      });
       return closestPoint;
     }
   }
@@ -685,12 +587,7 @@ function program() {
     axesBuffer: Vector[];
     ticks: number;
 
-    constructor(
-      position: Vector,
-      dir: number,
-      shape: Shape,
-      velocity?: Vector,
-    ) {
+    constructor(position: Vector, dir: number, shape: Shape, velocity?: Vector) {
       this.id = newid();
       this.indices = [];
       this.position = position;
@@ -701,11 +598,7 @@ function program() {
       this.hitbox = new Hitbox(shape, this);
       this.axesBuffer = [];
       if (initialVelocity) {
-        this.velocity = new Vector(
-          random(0, 2 * PI),
-          velocityMagnitude * random(0.75, 1.25),
-          "dirMag",
-        );
+        this.velocity = new Vector(random(0, 2 * PI), velocityMagnitude * random(0.75, 1.25), "dirMag");
         this.omega = random(-0.15, 0.15);
       } else {
         this.velocity = new Vector(0, 0);
@@ -735,30 +628,18 @@ function program() {
       this.dir += this.omega * dt;
 
       const velocity = this.velocity.getMag();
-      if (velocity > mu)
-        this.velocity.subtract(this.velocity.copy().multiply(mu / velocity));
+      if (velocity > mu) this.velocity.subtract(this.velocity.copy().multiply(mu / velocity));
       else this.velocity = new Vector(0, 0);
 
       if (abs(this.position.x) > canvasHalfWidth + this.hitbox.aabb.width / 2) {
-        this.position.x =
-          -Math.sign(this.position.x) *
-          (canvasHalfWidth + this.hitbox.aabb.width / 2);
+        this.position.x = -Math.sign(this.position.x) * (canvasHalfWidth + this.hitbox.aabb.width / 2);
       }
-      if (
-        abs(this.position.y) >
-        canvasHalfHeight + this.hitbox.aabb.height / 2
-      ) {
-        this.position.y =
-          -Math.sign(this.position.y) *
-          (canvasHalfHeight + this.hitbox.aabb.width / 2);
+      if (abs(this.position.y) > canvasHalfHeight + this.hitbox.aabb.height / 2) {
+        this.position.y = -Math.sign(this.position.y) * (canvasHalfHeight + this.hitbox.aabb.width / 2);
       }
 
       if (this.ticks % (60 * dt) === 0 && periodicVelocityShifts) {
-        this.velocity = new Vector(
-          random(0, 2 * PI),
-          velocityMagnitude * random(0.75, 1.25),
-          "dirMag",
-        );
+        this.velocity = new Vector(random(0, 2 * PI), velocityMagnitude * random(0.75, 1.25), "dirMag");
         this.omega = random(-0.01, 0.01) * scale;
       }
 
@@ -767,10 +648,7 @@ function program() {
     }
     draw() {
       pushMatrix();
-      translate(
-        this.position.x + canvasHalfWidth,
-        this.position.y + height / 2,
-      );
+      translate(this.position.x + canvasHalfWidth, this.position.y + height / 2);
       if (this.shape.type !== "Circle") rotate(this.dir);
       this.shape.draw(0, 0, this);
       popMatrix();
@@ -789,10 +667,7 @@ function program() {
 
       let axes = this.axesBuffer;
       // Circle-Circle test
-      if (
-        baseA.hitbox.type === baseB.hitbox.type &&
-        baseA.hitbox.type === "Circle"
-      ) {
+      if (baseA.hitbox.type === baseB.hitbox.type && baseA.hitbox.type === "Circle") {
         const sqDistance = baseA.hitbox.centroid
           .copy()
           .add(baseA.position)
@@ -810,7 +685,7 @@ function program() {
             overlap: overlap,
             MTV: normal.copy().multiply(overlap),
             baseA: baseA,
-            baseB: baseB,
+            baseB: baseB
           };
         }
       }
@@ -825,8 +700,7 @@ function program() {
         const projB = baseB.hitbox.project(axis, baseB);
 
         // check if seperate
-        if (projA.max < projB.min || projB.max < projA.min)
-          return { colliding: false };
+        if (projA.max < projB.min || projB.max < projA.min) return { colliding: false };
 
         const overlap = min(projA.max, projB.max) - max(projA.min, projB.min);
         if (overlap < minOverlap) {
@@ -839,15 +713,11 @@ function program() {
       if (baseA.hitbox.type !== baseB.hitbox.type) {
         // get closest point on edge and add to normals
         let circleBase, otherBase;
-        if (baseA.hitbox.type === "Circle")
-          [circleBase, otherBase] = [baseA, baseB];
+        if (baseA.hitbox.type === "Circle") [circleBase, otherBase] = [baseA, baseB];
         else [circleBase, otherBase] = [baseB, baseA];
-        const centroid = circleBase.position
-          .copy()
-          .add(circleBase.hitbox.centroid);
+        const centroid = circleBase.position.copy().add(circleBase.hitbox.centroid);
 
-        const closestPoint =
-          otherBase.hitbox.closestPointToCentroidOf(circleBase);
+        const closestPoint = otherBase.hitbox.closestPointToCentroidOf(circleBase);
         const axis = closestPoint.copy().subtract(centroid).normalize();
 
         // project each hitbox's vertices
@@ -855,8 +725,7 @@ function program() {
         const projB = baseB.hitbox.project(axis, baseB);
 
         // check if seperate
-        if (projA.max < projB.min || projB.max < projA.min)
-          return { colliding: false };
+        if (projA.max < projB.min || projB.max < projA.min) return { colliding: false };
 
         const overlap = min(projA.max, projB.max) - max(projA.min, projB.min);
         if (overlap < minOverlap) {
@@ -875,16 +744,10 @@ function program() {
         axis: minNormal,
         overlap: minOverlap,
         baseA: baseA,
-        baseB: baseB,
+        baseB: baseB
       };
     }
-    handleCollision(data: {
-      colliding: boolean;
-      axis: Vector;
-      overlap: number;
-      baseA: Base;
-      baseB: Base;
-    }) {
+    handleCollision(data: { colliding: boolean; axis: Vector; overlap: number; baseA: Base; baseB: Base }) {
       if (!data.colliding) return;
       const axis = data.axis;
       const MTV = data.axis.copy().multiply(data.overlap);
@@ -930,42 +793,27 @@ function program() {
               let projection = sideBA.dotProduct(sideBC) / sideBC.getSqMag();
               projection = constrain(projection, 0, 1);
 
-              const point = vertexB
-                .copy()
-                .add(sideBC.copy().multiply(projection));
+              const point = vertexB.copy().add(sideBC.copy().multiply(projection));
               const sideAP = point.copy().subtract(vertexA);
               const distanceSquared = sideAP.getSqMag();
               if (distanceSquared < 1 && contactPoints.length < 2) {
                 if (contactPoints.length === 1) {
-                  if (contactPoints[0].copy().subtract(point).getSqMag() > 0.01)
-                    contactPoints.push(point);
+                  if (contactPoints[0].copy().subtract(point).getSqMag() > 0.01) contactPoints.push(point);
                 } else contactPoints.push(point);
               }
             });
           });
         });
-        if (contactPoints.length === 0)
-          contactPoints.push(baseA.hitbox.closestPointToCentroidOf(baseB));
-      } else if (
-        collisionType === "Polygon-Circle" ||
-        collisionType === "Circle-Polygon"
-      ) {
+        if (contactPoints.length === 0) contactPoints.push(baseA.hitbox.closestPointToCentroidOf(baseB));
+      } else if (collisionType === "Polygon-Circle" || collisionType === "Circle-Polygon") {
         let circleBase, otherBase;
-        if (baseA.hitbox.type === "Circle")
-          [circleBase, otherBase] = [baseA, baseB];
+        if (baseA.hitbox.type === "Circle") [circleBase, otherBase] = [baseA, baseB];
         else [circleBase, otherBase] = [baseB, baseA];
-        contactPoints.push(
-          otherBase.hitbox.closestPointToCentroidOf(circleBase),
-        );
+        contactPoints.push(otherBase.hitbox.closestPointToCentroidOf(circleBase));
       } else if (collisionType === "Circle-Circle") {
-        const centroidAToCentroidB = baseB.position
-          .copy()
-          .subtract(baseA.position)
-          .normalize();
+        const centroidAToCentroidB = baseB.position.copy().subtract(baseA.position).normalize();
         contactPoints.push(
-          baseA.position
-            .copy()
-            .add(centroidAToCentroidB.copy().multiply(baseA.hitbox.radius)),
+          baseA.position.copy().add(centroidAToCentroidB.copy().multiply(baseA.hitbox.radius))
         );
       }
 
@@ -1018,42 +866,25 @@ function program() {
               0,
               0,
               ceil(scale * random(1 - scaleVariance, 1 + scaleVariance)),
-              ceil(random(2, 7)),
+              ceil(random(2, 7))
             ),
-            new Color(255, 0, 0),
+            new Color(255, 0, 0)
           )
-        : newCircle(
-            new Vector(0, 0),
-            ceil(scale * random(0.9, 1.1)),
-            new Color(255, 0, 0),
-          );
+        : newCircle(new Vector(0, 0), ceil(scale * random(0.9, 1.1)), new Color(255, 0, 0));
     if (random(0, 5) > 4) {
-      let hWidth =
-        scale * random(1 - scaleVariance, 1 + scaleVariance) * random(2, 4);
+      let hWidth = scale * random(1 - scaleVariance, 1 + scaleVariance) * random(2, 4);
       let hHeight = scale * random(1 - scaleVariance, 1 + scaleVariance) * 0.5;
       shape = newPolygon(
-        polyVerts(
-          -hWidth,
-          -hHeight,
-          hWidth,
-          -hHeight,
-          hWidth,
-          hHeight,
-          -hWidth,
-          hHeight,
-        ),
-        new Color(255, 0, 0),
+        polyVerts(-hWidth, -hHeight, hWidth, -hHeight, hWidth, hHeight, -hWidth, hHeight),
+        new Color(255, 0, 0)
       );
     }
     boxes.push(
       new Base(
-        new Vector(
-          random(-canvasHalfWidth, canvasHalfWidth),
-          random(-canvasHalfHeight, canvasHalfHeight),
-        ),
+        new Vector(random(-canvasHalfWidth, canvasHalfWidth), random(-canvasHalfHeight, canvasHalfHeight)),
         random(0, 2 * PI),
-        shape,
-      ),
+        shape
+      )
     );
   }
   if (insertCount === 0)
@@ -1062,34 +893,27 @@ function program() {
         new Vector(-100, 0),
         0,
         newCircle(new Vector(0, 0), 20, new Color(255, 0, 0)),
-        new Vector(1, 0),
+        new Vector(1, 0)
         //shape: newPolygon(regularPolyVerts(0, 0, 35, 4), new Color(255, 0, 0))
       ),
       new Base(
         new Vector(100, 0),
         0,
-        newCircle(new Vector(0, 0), 100, new Color(255, 0, 0)),
+        newCircle(new Vector(0, 0), 100, new Color(255, 0, 0))
         //shape: newPolygon(regularPolyVerts(0, 0, 55, 5), new Color(255, 0, 0))
       ),
       new Base(
         new Vector(0, -100),
         0,
         // shape: newPolygon(regularPolyVerts(0, 0, 35, 5), new Color(255, 0, 0))
-        newCircle(new Vector(0, 0), 35, new Color(255, 0, 0)),
+        newCircle(new Vector(0, 0), 35, new Color(255, 0, 0))
       ),
-      new Base(
-        new Vector(0, 100),
-        1.5,
-        newPolygon(regularPolyVerts(0, 0, 35, 5), new Color(255, 0, 0)),
-      ),
+      new Base(new Vector(0, 100), 1.5, newPolygon(regularPolyVerts(0, 0, 35, 5), new Color(255, 0, 0))),
       new Base(
         new Vector(0, 200),
         1.2,
-        newPolygon(
-          polyVerts(-25, -50, 25, -50, 25, 50, -25, 50),
-          new Color(255, 0, 0),
-        ),
-      ),
+        newPolygon(polyVerts(-25, -50, 25, -50, 25, 50, -25, 50), new Color(255, 0, 0))
+      )
     );
 
   const displayPeriod = 60;
@@ -1207,8 +1031,7 @@ function program() {
     }
     for (const box of boxes) {
       KE +=
-        (box.hitbox.mass * box.velocity.getSqMag()) / 2 +
-        (box.hitbox.momentOfInertia * sq(box.omega)) / 2;
+        (box.hitbox.mass * box.velocity.getSqMag()) / 2 + (box.hitbox.momentOfInertia * sq(box.omega)) / 2;
       box.update();
       Perf.updateMetric("boxUpdate");
       if (focus === box.id) box.getInput();
@@ -1223,21 +1046,14 @@ function program() {
     for (const box of boxes) {
       const aabb = box.hitbox.aabb;
       Perf.getTime();
-      const clients = world.queryGrid(
-        box.position.copy().add(aabb.centroid),
-        aabb.width,
-        aabb.height,
-      );
+      const clients = world.queryGrid(box.position.copy().add(aabb.centroid), aabb.width, aabb.height);
       Perf.updateMetric("gridQuery");
 
       for (const client of clients) {
         // skip duplicate collision check with self
         if (client.id === box.id) continue;
         // skip duplicate collision checks
-        const formattedCollision =
-          box.id < client.id
-            ? box.id + "," + client.id
-            : client.id + "," + box.id;
+        const formattedCollision = box.id < client.id ? box.id + "," + client.id : client.id + "," + box.id;
         if (collisionSet.has(formattedCollision)) continue;
 
         collisionSet.add(formattedCollision);
@@ -1282,7 +1098,7 @@ function program() {
           box.position.x + box.hitbox.centroid.x + canvasHalfWidth,
           box.position.y + box.hitbox.centroid.y + canvasHalfHeight,
           diameter,
-          diameter,
+          diameter
         );
       } else box.draw();
       fill(211, 175, 55);
@@ -1290,7 +1106,7 @@ function program() {
         box.position.x + box.hitbox.centroid.x + canvasHalfWidth,
         box.position.y + box.hitbox.centroid.y + canvasHalfHeight,
         5,
-        5,
+        5
       );
     }
     Perf.updateMetric("drawBoxes");
@@ -1316,7 +1132,7 @@ function program() {
       "Collision Count",
       collisions.length,
       "Kinetic Energy",
-      KE.toFixed(3),
+      KE.toFixed(3)
     ];
 
     textAlign(LEFT, TOP);
@@ -1335,11 +1151,7 @@ function program() {
     const rowGap = 0;
     const start = margin + padding;
 
-    const metricDisplayWidth =
-      padding +
-      keyWidth +
-      dataToDisplay.length * (dataWidth + columnGap) +
-      padding;
+    const metricDisplayWidth = padding + keyWidth + dataToDisplay.length * (dataWidth + columnGap) + padding;
     fill(0, 0, 0, 120);
     pushMatrix();
     const metricCount = Object.keys(Perf.metrics).length;
@@ -1347,11 +1159,7 @@ function program() {
       margin,
       margin,
       metricDisplayWidth,
-      padding +
-        (metricCount + 1) * rowHeight +
-        metricCount * rowGap +
-        initialRowGap +
-        padding,
+      padding + (metricCount + 1) * rowHeight + metricCount * rowGap + initialRowGap + padding
     );
     fill(255, 255, 255);
 
@@ -1375,12 +1183,7 @@ function program() {
 
     fill(255, 255, 255);
     noStroke();
-    rect(
-      start,
-      start + rowHeight,
-      dataToDisplay.length * (dataWidth + columnGap) + keyWidth,
-      3,
-    );
+    rect(start, start + rowHeight, dataToDisplay.length * (dataWidth + columnGap) + keyWidth, 3);
 
     textFont(font, 24);
     dx = start + keyWidth + columnGap;
@@ -1404,8 +1207,7 @@ function program() {
           formattedKey.push(character.toUpperCase());
           continue;
         }
-        if (character.toUpperCase() === character)
-          formattedKey.push(" ", character);
+        if (character.toUpperCase() === character) formattedKey.push(" ", character);
         else formattedKey.push(character);
       }
 
@@ -1414,9 +1216,7 @@ function program() {
       for (const dataKey of dataToDisplay) {
         let data = metric[dataKey];
         const unit = dataKey === "percentage" ? "%" : "ms";
-        data = isNaN(data)
-          ? displayPeriod - ticks / dt
-          : `${data.toFixed(3)} ${unit}`;
+        data = isNaN(data) ? displayPeriod - ticks / dt : `${data.toFixed(3)} ${unit}`;
 
         text(data, ddx, dy);
         ddx += dataWidth + columnGap;
@@ -1428,16 +1228,9 @@ function program() {
 
     fill(0, 0, 0, 120);
     stroke(0);
-    const counterDisplayHeight =
-      padding + (countMetrics.length / 2) * (rowHeight + rowGap) + padding;
-    const counterDisplayWidth =
-      padding + keyWidth + columnGap + dataWidth + padding;
-    rect(
-      margin,
-      height - margin - counterDisplayHeight,
-      counterDisplayWidth,
-      counterDisplayHeight,
-    );
+    const counterDisplayHeight = padding + (countMetrics.length / 2) * (rowHeight + rowGap) + padding;
+    const counterDisplayWidth = padding + keyWidth + columnGap + dataWidth + padding;
+    rect(margin, height - margin - counterDisplayHeight, counterDisplayWidth, counterDisplayHeight);
     fill(255);
     dy = height - margin - counterDisplayHeight + padding;
     for (let i = 0; i < countMetrics.length; i += 2) {
